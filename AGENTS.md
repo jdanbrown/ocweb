@@ -39,7 +39,6 @@ This project is built entirely from a phone, chatting with an llm
 - Don't read `BACKLOG.md` by default — load it only when the human asks about the "backlog"
 - Update `BACKLOG.md` if the human asks you to save something to the "backlog"
 - Don't add to `BACKLOG.md` if the human doesn't explicitly mention "backlog" — e.g. "save that for later" often means within the same session, not "go write this down in a file for another day"
-- Before committing, read `BACKLOG.md` and see if any items need to be removed along with the commit (we don't keep completed backlog items)
 
 ## Coding style
 - No trailing whitespace at the end of lines
@@ -64,6 +63,7 @@ This project is built entirely from a phone, chatting with an llm
 - Always run `dev/check` and confirm it passes before committing
   - If it fails, fix the issues and re-run until it passes
   - Don't commit or push with failing checks — the human can't fix these from their phone
+- Before committing, read `BACKLOG.md` and remove any items completed by the commit (we don't keep completed backlog items)
 
 ## Searching docs and examples
 - Code apis change often — eagerly search with `context7` tool to avoid outdated knowledge
