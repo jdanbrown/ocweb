@@ -56,13 +56,7 @@ export function ChatView() {
   }
 
   if (msgs.length === 0 && !generating[currentSessionId]) {
-    return (
-      <div className="chat-view">
-        <div className="empty-state">
-          <div className="empty-subtitle">Send a message to begin</div>
-        </div>
-      </div>
-    );
+    return <div className="chat-view" />;
   }
 
   return (

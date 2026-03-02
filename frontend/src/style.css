@@ -77,6 +77,10 @@ button {
 .top-bar-btn:hover {
   color: var(--text);
 }
+.top-bar-btn.hamburger {
+  font-size: 22px;
+  padding: 0.1rem 0.4rem;
+}
 .top-bar-btn.new-session {
   font-size: 22px;
   padding: 0.1rem 0.5rem;
@@ -429,7 +433,7 @@ button {
 
 /* --- Input area --- */
 .input-area {
-  padding: 0.4rem 0.75rem 0.6rem;
+  padding: 0.4rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--bg);
   display: flex;
