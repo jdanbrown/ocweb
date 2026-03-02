@@ -25,11 +25,8 @@ function SessionList(props: {
   const { currentSessionId, generating, currentRepo } = props;
   const sorted = sortedSessions();
 
-  if (!currentRepo) {
-    return <div className="sidebar-empty">Select a repo to see sessions</div>;
-  }
-  if (sorted.length === 0) {
-    return <div className="sidebar-empty">No sessions yet</div>;
+  if (!currentRepo || sorted.length === 0) {
+    return <div className="sidebar-empty">No sessions</div>;
   }
 
   return (

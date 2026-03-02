@@ -38,14 +38,7 @@ export function ChatView() {
   }
 
   if (!currentSessionId) {
-    return (
-      <div className="chat-view">
-        <div className="empty-state">
-          <div className="empty-title">dancodes</div>
-          <div className="empty-subtitle">Select a session or create a new one</div>
-        </div>
-      </div>
-    );
+    return <div className="chat-view" />;
   }
 
   if (msgs.length === 0 && !generating[currentSessionId]) {
