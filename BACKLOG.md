@@ -1,4 +1,5 @@
 # Backlog (see AGENTS.md)
+- [2026-03-02] Style: More white-on-black, all this medium gray is hard to see
 - [2026-03-02] Find way to make llmjail use local Dockerfile? — what's the right Dockerfile/script interface to merge these?
 - [2026-03-02] To make dev/check faster for llm, can we run it in dev/docker-shell instead of llmjail (bash tool)?
 - [2026-03-02] Three-dots menu in chat header: copy branch (with branch name inline), share session, rename session, show git stat/diff
