@@ -210,6 +210,13 @@ dev/check
 fly apps create dancodes --org jdanbrown
 fly volumes create dancodes_vol --app dancodes --region iad --size 10
 fly secrets set --app dancodes AUTH_PASSWORD=... AUTH_SECRET=... GITHUB_TOKEN=... OPENROUTER_API_KEY=...
+
+# Block force-pushes and deletion of main (server-side safety net against LLMs going rogue)
+gh api repos/jdanbrown/dancodes/rulesets --method POST --input - <<'EOF'
+{"name":"no-force-push-main","target":"branch","enforcement":"active",
+ "conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"],"exclude":[]}},
+ "rules":[{"type":"non_fast_forward"},{"type":"deletion"}]}
+EOF
 ```
 
 ### Deploys are automatic
