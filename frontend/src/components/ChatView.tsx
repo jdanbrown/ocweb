@@ -151,14 +151,19 @@ function PartView({ part, streaming }: { part: MessagePart; streaming: boolean }
   return null;
 }
 
+// Tools that start collapsed — output is noise for the user most of the time
+const COLLAPSED_BY_DEFAULT = new Set(["read", "glob", "grep", "task"]);
+
 function ToolPartView({ part }: { part: MessagePart }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const defaultCollapsed = COLLAPSED_BY_DEFAULT.has(part.tool ?? "");
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const st = part.state;
   if (!st) return null;
 
-  const title = st.title ?? part.tool ?? "tool";
+  const toolName = part.tool ?? "";
+  const title = st.title ?? (toolName || "tool");
   const status = st.status;
-  const command = part.tool === "bash" ? (st.input?.command as string | undefined) : undefined;
+  const command = toolName === "bash" ? (st.input?.command as string | undefined) : undefined;
 
   if (status === "pending" || status === "running") {
     return (
@@ -179,20 +184,90 @@ function ToolPartView({ part }: { part: MessagePart }) {
     );
   }
 
-  // completed
+  // completed — render body based on tool type
   const output = st.output ?? "";
+  let body: React.ReactNode;
+  if (toolName === "todowrite") {
+    body = <TodoBody input={st.input} />;
+  } else if (toolName === "edit") {
+    body = <EditDiffBody input={st.input} />;
+  } else {
+    body = (
+      <>
+        {command && <div className="tool-command">$ {command}</div>}
+        {output && <div className="tool-output">{output}</div>}
+      </>
+    );
+  }
+
   return (
     <div className="msg-part tool completed">
       <div className="tool-header" onClick={() => setCollapsed(!collapsed)}>
         <span className="tool-title">{title}</span>
         <span className="tool-collapse-hint">{collapsed ? "show" : "hide"}</span>
       </div>
-      {!collapsed && (
-        <>
-          {command && <div className="tool-command">$ {command}</div>}
-          {output && <div className="tool-output">{output}</div>}
-        </>
+      {!collapsed && body}
+    </div>
+  );
+}
+
+// Render edit tool as a simple diff showing old → new
+function EditDiffBody({ input }: { input?: Record<string, unknown> }) {
+  const oldStr = (input?.oldString as string) ?? "";
+  const newStr = (input?.newString as string) ?? "";
+  if (!oldStr && !newStr) return null;
+  return (
+    <div className="edit-diff">
+      {oldStr && (
+        <div className="edit-diff-removed">
+          {oldStr.split("\n").map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: lines have no stable id
+            <div key={i} className="edit-diff-line">
+              <span className="edit-diff-sign">-</span>
+              {line}
+            </div>
+          ))}
+        </div>
       )}
+      {newStr && (
+        <div className="edit-diff-added">
+          {newStr.split("\n").map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: lines have no stable id
+            <div key={i} className="edit-diff-line">
+              <span className="edit-diff-sign">+</span>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Render todo list as a formatted checklist instead of raw JSON
+function TodoBody({ input }: { input?: Record<string, unknown> }) {
+  const todos = input?.todos;
+  if (!Array.isArray(todos) || todos.length === 0) return null;
+
+  const statusIcon = (s: string) => {
+    if (s === "completed") return "\u2713";
+    if (s === "in_progress") return "\u25B6";
+    if (s === "cancelled") return "\u2013";
+    return "\u25CB"; // pending
+  };
+
+  return (
+    <div className="todo-list">
+      {todos.map((t) => {
+        const content = ((t as Record<string, unknown>).content as string) ?? "";
+        const st = ((t as Record<string, unknown>).status as string) ?? "pending";
+        return (
+          <div key={content} className={`todo-item todo-${st}`}>
+            <span className="todo-icon">{statusIcon(st)}</span>
+            <span className="todo-content">{content}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

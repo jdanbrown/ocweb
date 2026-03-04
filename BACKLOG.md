@@ -17,13 +17,7 @@
 - [2026-03-03] Bash tool outputs should stream
   - Currently it just shows “bash” with a blinking cursor until the full output is done
   - Awful UX, I keep thinking it's hung
-- [2026-03-03] Audit tool call outputs, what to show/hide/collapse
-  - File reads: hide
-  - bash: show
-  - subagent summary: hide
-  - file edits/writes: show — add highlighting
-  - todo: show — add formatting
-  - question: show — currently these just show “question” and blinking cursor and hang (“stop” instead of “send”)
+- [2026-03-03] Question tool: shows “question” and blinking cursor and hangs (“stop” instead of “send”)
 - [2026-03-02] Style: More white-on-black, all this medium gray is hard to see
 - [2026-03-02] Find way to make llmjail use local Dockerfile? — what's the right Dockerfile/script interface to merge these?
 - [2026-03-02] To make dev/check faster for llm, can we run it in dev/docker-shell instead of llmjail (bash tool)?
