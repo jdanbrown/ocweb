@@ -17,10 +17,10 @@
   - Future: to keep machine alive for background LLM work after closing browser, two options:
     - **Option A (recommended):** Self-stop via Machines API -- set `auto_stop_machines = "off"`, sidecar tracks last activity + busy sessions, calls `POST http://_api.internal:4280/v1/apps/dancodes/machines/{FLY_MACHINE_ID}/stop` after configurable idle timeout. Needs `FLY_API_TOKEN` secret (`fly secrets set FLY_API_TOKEN="$(fly tokens deploy)"`)
     - **Option B (hacky):** Self-ping -- keep `auto_stop_machines = "stop"`, sidecar pings own public URL while sessions are busy to keep connections > 0. No extra secret needed but fragile.
-- [2026-03-04] Fly volume I/O stalls -- pattern emerging, second incident
+- [2026-03-04] Fly volume IO stalls -- pattern emerging, second incident
   - Symptoms all hit at once: multiple corrupt (empty) git objects, bash tool calls hanging (tsc/biome >2min timeout), page loads hanging
   - This time objects were empty files (not garbled like the inflate error on 03-03) -- suggests writes acked but never flushed
-  - Likely cause: Fly VM migration or volume detach/reattach. When the volume stalls, everything doing disk I/O hangs simultaneously.
+  - Likely cause: Fly VM migration or volume detach/reattach. When the volume stalls, everything doing disk IO hangs simultaneously.
   - Fix is the same: delete corrupt objects with `python3 os.unlink()`, `git fetch origin`, and if HEAD is damaged `git reset --hard origin/main` to get back to a clean state
   - If you see bash tool calls hanging + page loads hanging at the same time, suspect a Fly volume stall -- don't waste time debugging code
   - Two incidents so far: 2026-03-03 (inflate error, single object), 2026-03-04 (empty files, multiple objects + hangs)
