@@ -4,7 +4,7 @@ primary_region = "iad"
 [build]
 
 [env]
-  OPENCODE_HOME = "/vol/opencode-state"
+  XDG_DATA_HOME = "/vol/opencode-state"
   OPENCODE_CONFIG = "/opt/dancodes/opencode.json"
   GITHUB_USER = "jdanbrown"
 

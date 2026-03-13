@@ -11,6 +11,11 @@
 - 2026-02-28 32452fe
 
 ## Memory log
+- [2026-03-13] `OPENCODE_HOME` is not a real env var -- opencode ignores it
+  - Opencode uses `XDG_DATA_HOME` (or `$HOME/.local/share`) for its DB: `$XDG_DATA_HOME/opencode/opencode.db`
+  - We had `OPENCODE_HOME=/vol/opencode-state` which did nothing -- the DB was actually at `$HOME/.local/share/opencode/opencode.db`
+  - Since `HOME=/vol/projects/worktrees` (set in bin/run for the folder picker), the DB lived inside the worktrees dir and got wiped when we nuked worktrees
+  - Fix: set `XDG_DATA_HOME=/vol/opencode-state` in fly.toml instead
 - [2026-03-13] git corruption: Root cause analysis (fly volume durability) + fsync fix
   - 3 incidents in 10 days
     - Empty files where git object data should be, cascading corruption, random fs ops would hang (e.g. reads, `rm -rf`), volume IO stalled

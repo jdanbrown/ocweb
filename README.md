@@ -187,7 +187,7 @@ This lets `/` serve our custom frontend, while `/session/*` loads the opencode w
 
 ### Non-secret env (in fly.toml `[env]`)
 - `GITHUB_USER` -- GitHub username for repo lookups
-- `OPENCODE_HOME` -- `/vol/opencode-state` (SQLite on persistent volume)
+- `XDG_DATA_HOME` -- `/vol/opencode-state` (opencode SQLite DB lands at `$XDG_DATA_HOME/opencode/opencode.db`)
 
 ### Sidecar implementation
 - Python + FastAPI, chosen for speed of development
