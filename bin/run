@@ -19,7 +19,7 @@ echo_black_stderr "Start: run"
 APP_DIR='/opt/dancodes'
 
 # Ensure volume dirs exist
-mkdir -p /vol/projects/worktrees /vol/opencode-state
+mkdir -p /vol/projects/repos /vol/projects/worktrees /vol/opencode-state
 
 # CWD for opencode: intentionally invalid so any API call that forgets to pass
 # x-opencode-directory will fail loudly instead of silently using /opt/dancodes.

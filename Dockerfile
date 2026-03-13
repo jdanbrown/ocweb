@@ -65,9 +65,6 @@ RUN echo "$GIT_SHA" > /opt/dancodes/VERSION && echo "$GIT_TIME" > /opt/dancodes/
 RUN git config --global core.fsync all \
  && git config --global core.fsyncMethod fsync
 
-# Volume mount point
-RUN mkdir -p /vol/projects /vol/opencode-state
-
 EXPOSE 8080
 
 ENTRYPOINT ["/opt/dancodes/bin/run"]

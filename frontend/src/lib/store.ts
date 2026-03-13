@@ -205,8 +205,28 @@ export async function selectSession(id: string) {
   }
 }
 
+async function ensureWorktree(sessionId: string): Promise<string | undefined> {
+  const dir = dirFor(sessionId);
+  if (!dir || !state.currentRepo) return dir;
+  // Parse worktree path: /vol/projects/worktrees/owner__name__wtId
+  const base = dir.split("/").pop();
+  if (!base) return dir;
+  const parts = base.split("__");
+  if (parts.length < 3) return dir;
+  const wtId = parts.slice(2).join("__");
+  try {
+    // Clone is idempotent (returns {status: "exists"} if already cloned)
+    await post("/admin/repos/clone", { repo: state.currentRepo.name });
+    // Create worktree is idempotent too
+    await post("/admin/worktrees", { repo: state.currentRepo.name, session_id: wtId });
+  } catch (e) {
+    console.warn("ensureWorktree:", e);
+  }
+  return dir;
+}
+
 async function fetchMessages(id: string) {
-  const dir = dirFor(id);
+  const dir = await ensureWorktree(id);
   try {
     const data = await get(`/session/${id}/message`, { directory: dir });
     state.messages[id] = Array.isArray(data) ? (data as Message[]) : [];
