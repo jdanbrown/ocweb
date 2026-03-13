@@ -36,9 +36,9 @@ RUN npm install -g opencode-ai@latest
 # - Restrict COPY to just requirements.txt, because `COPY . .` busts cache on _any_ file change -- annoying in dev
 # - Precompile .pyc at build time so the slow shared CPU doesn't have to at startup
 COPY requirements.txt .
-RUN python3 -m venv sidecar/.venv \
-  && sidecar/.venv/bin/pip install --no-cache-dir -r requirements.txt \
-  && python3 -m compileall -q sidecar/.venv
+RUN python3 -m venv .venv \
+  && .venv/bin/pip install --no-cache-dir -r requirements.txt \
+  && python3 -m compileall -q .venv
 
 # Install node deps
 # - Restrict COPY to just package.json, because `COPY . .` busts cache on _any_ file change -- annoying in dev

@@ -31,7 +31,7 @@ echo_black_stderr "Starting opencode (bg) in $OPENCODE_CWD"
 OPENCODE_PID=$!
 
 echo_black_stderr "Starting sidecar (bg)"
-show_cmd "$APP_DIR/sidecar/.venv/bin/uvicorn" sidecar.app:app --host 0.0.0.0 --port 4097 --log-level info &
+show_cmd "$APP_DIR/.venv/bin/uvicorn" sidecar.app:app --host 0.0.0.0 --port 4097 --log-level info &
 SIDECAR_PID=$!
 
 echo_black_stderr "Waiting for opencode to be ready..."

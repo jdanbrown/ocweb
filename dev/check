@@ -10,13 +10,31 @@ function show_cmd() {
 }
 
 # Backend (python)
-[ -f .venv/pyvenv.cfg ] || show_cmd uv venv .venv
-[ -f .venv/.installed ] || (show_cmd uv pip install -r requirements.txt && touch .venv/.installed)
-show_cmd ruff check .
-show_cmd ruff format --check .
-show_cmd pyright
+# - In prod, reuse the project venv (already built by Dockerfile)
+# - In local dev, create .venv with uv
+# - Symlink .venv into the worktree so pyright can find it (pyrightconfig.json points to ./.venv)
+if [ -f /opt/dancodes/.venv/pyvenv.cfg ]; then
+  VENV=/opt/dancodes/.venv
+elif [ -f /opt/dancodes/sidecar/.venv/pyvenv.cfg ]; then
+  # Legacy path -- remove after next deploy moves venv to /opt/dancodes/.venv
+  VENV=/opt/dancodes/sidecar/.venv
+else
+  VENV=.venv
+  [ -f "$VENV/pyvenv.cfg" ] || show_cmd uv venv "$VENV"
+  [ -f "$VENV/.installed" ] || (show_cmd uv pip install -r requirements.txt && touch "$VENV/.installed")
+fi
+if [ ! -e .venv ] && [ "$VENV" != ".venv" ]; then
+  ln -sf "$VENV" .venv
+fi
+show_cmd "$VENV/bin/ruff" check .
+show_cmd "$VENV/bin/ruff" format --check .
+show_cmd "$VENV/bin/pyright" .
 
 # Frontend (ts, tsx, css)
+# - In prod worktrees, symlink node_modules from the project dir
+if [ ! -e node_modules ] && [ -d /opt/dancodes/node_modules ]; then
+  ln -sf /opt/dancodes/node_modules node_modules
+fi
 [ -f node_modules/.package-lock.json ] || show_cmd npm install
 show_cmd npx tsc --noEmit -p frontend/tsconfig.json
 show_cmd npx biome check frontend/src/

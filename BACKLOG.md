@@ -34,7 +34,6 @@
 - [2026-03-02] Pin opencode version, plus add a skill for what to do when upgrading opencode (e.g. check changelog for api changes)
 - [2026-03-02] Add text button in top bar to show git stat/diff/log for current chat session
 - [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?
-- [2026-03-02] Fix dev/check in prod -- currently missing a bunch of deps
 - [2026-03-02] Frontend disconnect/reconnect doesn't reflect interim progress
   - After closing and reopening the browser, the UI shows no updates that happened while disconnected
 - [2026-03-02] In git commit, what should author be?
