@@ -1,5 +1,5 @@
 """
-dancodes sidecar — git lifecycle, disk usage, orphan process management, auth.
+dancodes sidecar -- git lifecycle, disk usage, orphan process management, auth.
 """
 
 import hashlib
@@ -37,7 +37,7 @@ AUTH_PASSWORD = os.environ["AUTH_PASSWORD"]
 AUTH_SECRET = os.environ["AUTH_SECRET"]
 AUTH_MAX_AGE = 30 * 24 * 60 * 60  # 30 days
 COOKIE_NAME = "dancodes_session"
-# Fly terminates TLS at the edge, so the app sees HTTP — but cookies need Secure
+# Fly terminates TLS at the edge, so the app sees HTTP -- but cookies need Secure
 # for the browser to send them over HTTPS. Use X-Forwarded-Proto to detect.
 COOKIE_SECURE = os.environ.get("FLY_APP_NAME", "") != ""
 
@@ -91,7 +91,7 @@ def _verify_token(token: str) -> bool:
 
 @app.get("/auth/check")
 def auth_check(request: Request) -> Response:
-    """Caddy forward_auth calls this — 200 means authenticated, otherwise redirect to login.
+    """Caddy forward_auth calls this -- 200 means authenticated, otherwise redirect to login.
     forward_auth copies non-2xx responses directly to the client, so we redirect here."""
     token = request.cookies.get(COOKIE_NAME)
     if token and _verify_token(token):
@@ -160,7 +160,7 @@ def login_submit(password: str = Form(...), redirect: str = Form("/")):
     return response
 
 
-# --- Models (must precede endpoints — FastAPI evaluates type annotations eagerly) ---
+# --- Models (must precede endpoints -- FastAPI evaluates type annotations eagerly) ---
 
 
 class CloneRequest(BaseModel):

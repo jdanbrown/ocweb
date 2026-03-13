@@ -151,7 +151,7 @@ function PartView({ part, streaming }: { part: MessagePart; streaming: boolean }
   return null;
 }
 
-// Tools that start collapsed — output is noise for the user most of the time
+// Tools that start collapsed -- output is noise for the user most of the time
 const COLLAPSED_BY_DEFAULT = new Set(["read", "glob", "grep", "task"]);
 
 function ToolPartView({ part }: { part: MessagePart }) {
@@ -184,7 +184,7 @@ function ToolPartView({ part }: { part: MessagePart }) {
     );
   }
 
-  // completed — render body based on tool type
+  // completed -- render body based on tool type
   const output = st.output ?? "";
   let body: React.ReactNode;
   if (toolName === "todowrite") {

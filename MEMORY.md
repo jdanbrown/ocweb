@@ -1,6 +1,6 @@
 # Memory
 - A living document to maintain our "institutional memory" across many llm chat sessions and long spans of time
-  - Write down lessons, gotchas, surprises — anything non-obvious that burned us once will likely burn us again, if we don't write it down so future llm sessions can recall it
+  - Write down lessons, gotchas, surprises -- anything non-obvious that burned us once will likely burn us again, if we don't write it down so future llm sessions can recall it
   - But first, always prefer code comments when appropriate, but for anything that doesn't naturally fit into the code, write it down here
 - Style and formatting:
   - Include a date prefix, and order new (top) to old (bottom)
@@ -15,21 +15,21 @@
   - Machine stops when Fly Proxy sees zero connections for a few minutes, restarts on next request (~20s cold start)
   - SSE connections keep machine alive while browser tab is open
   - Future: to keep machine alive for background LLM work after closing browser, two options:
-    - **Option A (recommended):** Self-stop via Machines API — set `auto_stop_machines = "off"`, sidecar tracks last activity + busy sessions, calls `POST http://_api.internal:4280/v1/apps/dancodes/machines/{FLY_MACHINE_ID}/stop` after configurable idle timeout. Needs `FLY_API_TOKEN` secret (`fly secrets set FLY_API_TOKEN="$(fly tokens deploy)"`)
-    - **Option B (hacky):** Self-ping — keep `auto_stop_machines = "stop"`, sidecar pings own public URL while sessions are busy to keep connections > 0. No extra secret needed but fragile.
-- [2026-03-04] Fly volume I/O stalls — pattern emerging, second incident
+    - **Option A (recommended):** Self-stop via Machines API -- set `auto_stop_machines = "off"`, sidecar tracks last activity + busy sessions, calls `POST http://_api.internal:4280/v1/apps/dancodes/machines/{FLY_MACHINE_ID}/stop` after configurable idle timeout. Needs `FLY_API_TOKEN` secret (`fly secrets set FLY_API_TOKEN="$(fly tokens deploy)"`)
+    - **Option B (hacky):** Self-ping -- keep `auto_stop_machines = "stop"`, sidecar pings own public URL while sessions are busy to keep connections > 0. No extra secret needed but fragile.
+- [2026-03-04] Fly volume I/O stalls -- pattern emerging, second incident
   - Symptoms all hit at once: multiple corrupt (empty) git objects, bash tool calls hanging (tsc/biome >2min timeout), page loads hanging
-  - This time objects were empty files (not garbled like the inflate error on 03-03) — suggests writes acked but never flushed
+  - This time objects were empty files (not garbled like the inflate error on 03-03) -- suggests writes acked but never flushed
   - Likely cause: Fly VM migration or volume detach/reattach. When the volume stalls, everything doing disk I/O hangs simultaneously.
   - Fix is the same: delete corrupt objects with `python3 os.unlink()`, `git fetch origin`, and if HEAD is damaged `git reset --hard origin/main` to get back to a clean state
-  - If you see bash tool calls hanging + page loads hanging at the same time, suspect a Fly volume stall — don't waste time debugging code
+  - If you see bash tool calls hanging + page loads hanging at the same time, suspect a Fly volume stall -- don't waste time debugging code
   - Two incidents so far: 2026-03-03 (inflate error, single object), 2026-03-04 (empty files, multiple objects + hangs)
-- [2026-03-03] Corrupt git object on Fly volume — `git fetch` failed with "inflate: data stream error"
+- [2026-03-03] Corrupt git object on Fly volume -- `git fetch` failed with "inflate: data stream error"
   - A loose object in `/vol/projects/repos/.../.git/objects/` was corrupted (likely Fly volume fsync issue)
-  - Fix: delete the corrupt file and re-fetch — `python3 -c "import os; os.unlink('<path>')"` then `git fetch origin`
-  - Don't use `rm` on git objects in this environment — they're read-only (`-r--r--r--`) and `rm` hangs waiting for confirmation. Use `rm -f` or `python3 os.unlink()`
+  - Fix: delete the corrupt file and re-fetch -- `python3 -c "import os; os.unlink('<path>')"` then `git fetch origin`
+  - Don't use `rm` on git objects in this environment -- they're read-only (`-r--r--r--`) and `rm` hangs waiting for confirmation. Use `rm -f` or `python3 os.unlink()`
   - Root cause unclear: possibly a Fly volume latency spike or VM migration mid-write. No concurrent chats were running.
-  - Not a code bug — likely a Fly volume reliability edge case
+  - Not a code bug -- likely a Fly volume reliability edge case
 - [2026-03-03] Worktrees must branch from `origin/main`, not local `main`
   - The repo clone's local `main` goes stale (never fetched after initial clone)
   - Sidecar now does `git fetch origin` before `git worktree add ... origin/main`
@@ -45,35 +45,35 @@
   - `dev/check` runs: `tsc --noEmit`, `biome check`, and `vite build`
   - State management: `useSyncExternalStore` over a plain mutable object (no Context/Redux)
   - biome.json targets `frontend/src/**/*.{ts,tsx,css}` (not `frontend/**/*.js` anymore)
-  - Disabled a11y lint rules (useButtonType, noStaticElementInteractions, useKeyWithClickEvents) — overkill for personal mobile-first app
-- [2026-03-01] Frontend rendering pitfall (DEFUNCT — React handles this now)
+  - Disabled a11y lint rules (useButtonType, noStaticElementInteractions, useKeyWithClickEvents) -- overkill for personal mobile-first app
+- [2026-03-01] Frontend rendering pitfall (DEFUNCT -- React handles this now)
   - ~~Don't DOM-append elements into a container that gets rebuilt via innerHTML~~
 - [2026-03-01] `GET /session/status` returns `{ sessionID: { type: "idle"|"busy"|"retry" } }` for all sessions
   - Scoped per-directory (like all opencode endpoints), so needs `x-opencode-directory` header
-  - Use this to get initial busy/idle state on page load — SSE only delivers future state changes, not current state
+  - Use this to get initial busy/idle state on page load -- SSE only delivers future state changes, not current state
 - [2026-03-01] Opencode health endpoint is `/global/health`, NOT `/health`
-  - `/health` is not a real endpoint — it falls through to the catch-all proxy to `app.opencode.ai` (which redirects it to `/session/health`, which doesn't exist)
+  - `/health` is not a real endpoint -- it falls through to the catch-all proxy to `app.opencode.ai` (which redirects it to `/session/health`, which doesn't exist)
   - `/global/health` is before the directory middleware, so it always works regardless of CWD
 - [2026-03-01] Opencode directory scoping is per-request, not per-session (see README "How opencode directory scoping works")
   - `x-opencode-directory` header (or `?directory=` query param) must be on every API call, including SSE
-  - `POST /session` body `{ directory }` is silently ignored — directory comes from middleware only
-  - SSE is scoped per-directory — need one EventSource per worktree to get all events
+  - `POST /session` body `{ directory }` is silently ignored -- directory comes from middleware only
+  - SSE is scoped per-directory -- need one EventSource per worktree to get all events
   - Session listing returns all sessions for the project (same repo = same project, keyed by root commit SHA)
 - [2026-03-01] `session.status` event uses `{ type: "busy" | "idle" }`, not `{ generating: true/false }`
 - [2026-03-01] OpenCode SSE event format (v2)
-  - All events are unnamed SSE messages (`onmessage`), no `event:` field — don't use `addEventListener`
+  - All events are unnamed SSE messages (`onmessage`), no `event:` field -- don't use `addEventListener`
   - Format: `{ type: "event.type", properties: { ... } }`
   - Key events: `session.created/updated` (props.info), `session.status` (props.sessionID, props.status.generating), `session.error` (props.sessionID, props.error), `message.updated` (props.info), `message.part.updated` (props.part), `message.part.delta` (props.sessionID/messageID/partID/field/delta)
   - Messages via `GET /session/:id/message` return v2 format: `[{ info: {id, role, ...}, parts: [...] }]`
   - Part types: `text`, `reasoning`, `tool` (with state: pending/running/completed/error), `step-start`, `step-finish`, `snapshot`, `patch`, `subtask`, `compaction`
-  - Errors come through two paths: `session.error` event AND `message.updated` with `info.error` on assistant message — dedup or pick one
+  - Errors come through two paths: `session.error` event AND `message.updated` with `info.error` on assistant message -- dedup or pick one
 - [2026-03-01] OpenCode serve gotchas
   - `--print-logs` required to see logs on stderr (otherwise logs go to `~/.local/share/opencode/log/` only)
-  - Treats CWD as project root — we now start it in `/tmp/opencode-no-project` so any request missing `x-opencode-directory` fails loudly
-  - `HOME` is used as starting dir for opencode web UI's "Open project" folder picker — set it to `/vol/projects/worktrees` so worktrees are discoverable
+  - Treats CWD as project root -- we now start it in `/tmp/opencode-no-project` so any request missing `x-opencode-directory` fails loudly
+  - `HOME` is used as starting dir for opencode web UI's "Open project" folder picker -- set it to `/vol/projects/worktrees` so worktrees are discoverable
 - [2026-02-28] Replaced bun with real node in Dockerfile
   - Previously: bun installed, `ln -s bun node` to satisfy opencode's `#!/usr/bin/env node` shebang
-  - Now: real node via nodesource apt repo, no bun — same `node`/`npm`/`npx` commands in local dev and prod
+  - Now: real node via nodesource apt repo, no bun -- same `node`/`npm`/`npx` commands in local dev and prod
   - Frontend tooling: biome (lint + format) via `npm install`, checked by `dev/check`
 - [2026-02-26] OpenCode internals (reference)
   - TypeScript, runs on Bun, Hono web framework
@@ -81,7 +81,7 @@
   - Per-directory state isolation via `AsyncLocalStorage`
   - Key endpoints: `POST /session/:id/prompt_async`, `GET /event` (SSE), session CRUD, abort, fork, diff
   - JS SDK (`@opencode-ai/sdk`) exists but just spawns a child process
-  - Auth middleware is first in Hono chain — all routes behind it, architecturally safe
+  - Auth middleware is first in Hono chain -- all routes behind it, architecturally safe
   - Catch-all route proxies unmatched paths to `app.opencode.ai` (how built-in web UI works)
   - Built-in web UI uses `location.origin` as API base URL (`packages/app/src/entry.tsx`)
     - So it only works when served from the same origin as the API (no path prefix support)

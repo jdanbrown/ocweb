@@ -17,7 +17,7 @@ export function InputArea() {
     }
   }, [currentSessionId]);
 
-  // Auto-resize textarea — intentionally re-runs when text changes
+  // Auto-resize textarea -- intentionally re-runs when text changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: need to re-run on text changes
   useEffect(() => {
     const el = textareaRef.current;

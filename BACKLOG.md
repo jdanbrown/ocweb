@@ -6,7 +6,7 @@
 - [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)
 - [2026-03-04] Show token totals in the top bar
 - [2026-03-04] Show timestamps on each chat output (alongside tokens)
-- [2026-03-04] Replace em-dashes and smart quotes in .md files with ascii — opencode edit tool chokes on fancy chars (converted by read tool, or something)
+- [2026-03-04] Replace em-dashes and smart quotes in .md files with ascii -- opencode edit tool chokes on fancy chars (converted by read tool, or something)
 - [2026-03-03] Fix: Scroll in chat doesn't follow when new content appears (only follow when scroll is at bottom, don't jank if scrolled up somewhere)
 - [2026-03-03] Support opencode tui theme json files, and put in my ~/.opencode/themes/jdanbrown.json
 - [2026-03-03] Add way to view subagent sessions (since we removed them from sidebar session list)
@@ -25,7 +25,7 @@
   - Awful UX, I keep thinking it's hung
 - [2026-03-03] Question tool: shows “question” and blinking cursor and hangs (“stop” instead of “send”)
 - [2026-03-02] Style: More white-on-black, all this medium gray is hard to see
-- [2026-03-02] Find way to make llmjail use local Dockerfile? — what's the right Dockerfile/script interface to merge these?
+- [2026-03-02] Find way to make llmjail use local Dockerfile? -- what's the right Dockerfile/script interface to merge these?
 - [2026-03-02] To make dev/check faster for llm, can we run it in dev/docker-shell instead of llmjail (bash tool)?
 - [2026-03-02] Three-dots menu in chat header: copy branch (with branch name inline), share session, rename session
 - [2026-03-02] Mode picker in input area (build/plan/etc)
@@ -33,10 +33,10 @@
 - [2026-03-02] Pin all deps versions
 - [2026-03-02] Pin opencode version, plus add a skill for what to do when upgrading opencode (e.g. check changelog for api changes)
 - [2026-03-02] Add text button in top bar to show git stat/diff/log for current chat session
-- [2026-03-02] Figure out how to connect from opencode cli — i think custom auth currently defeats it?
-- [2026-03-02] Fix dev/check in prod — currently missing a bunch of deps
+- [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?
+- [2026-03-02] Fix dev/check in prod -- currently missing a bunch of deps
 - [2026-03-02] Frontend disconnect/reconnect doesn't reflect interim progress
   - After closing and reopening the browser, the UI shows no updates that happened while disconnected
 - [2026-03-02] In git commit, what should author be?
 - [2026-03-01] Update formatting on backend python logging to be not horribly ugly and hard to read
-- [2026-02-28] Frontend debug log panel — intercept console.log, show in a scrollable panel in the UI, easy to copy/paste from phone for diagnostics
+- [2026-02-28] Frontend debug log panel -- intercept console.log, show in a scrollable panel in the UI, easy to copy/paste from phone for diagnostics

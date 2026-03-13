@@ -418,7 +418,7 @@ export function toggleFavorite(providerID: string, modelID: string) {
   if (idx >= 0) favs.splice(idx, 1);
   else favs.push(key);
   saveFavorites(favs);
-  // No state change needed — component re-reads from localStorage
+  // No state change needed -- component re-reads from localStorage
 }
 
 // --- Version ---
@@ -443,7 +443,7 @@ export async function loadVersion() {
 }
 
 // ---------------------------------------------------------------------------
-// SSE — one stream per recently-active worktree directory
+// SSE -- one stream per recently-active worktree directory
 // ---------------------------------------------------------------------------
 
 const SSE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -618,7 +618,7 @@ function handleEvent(raw: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Init — call once on app mount
+// Init -- call once on app mount
 // ---------------------------------------------------------------------------
 
 export async function initApp() {

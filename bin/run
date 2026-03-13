@@ -50,7 +50,7 @@ for i in $(seq 1 60); do
   sleep 0.5
 done
 
-# Caddy starts last — Fly's health check targets /admin/health (sidecar), which
+# Caddy starts last -- Fly's health check targets /admin/health (sidecar), which
 # itself checks opencode liveness. So the deploy isn't "ready" until the whole
 # stack is up: opencode + sidecar + caddy.
 echo_black_stderr "Running caddy (fg)"

@@ -23,13 +23,13 @@
 	# try_files serves our file if it exists, otherwise proxies to opencode.
 	# This lets / serve our index.html while /session/*, /event, etc. reach the API.
 	# Unmatched paths (e.g. /session/abc) fall through to opencode, which proxies
-	# to app.opencode.ai — so the opencode web UI is available at any non-file path.
+	# to app.opencode.ai -- so the opencode web UI is available at any non-file path.
 	root * /opt/dancodes/frontend/dist
 	@static file {
 		try_files {path} {path}/index.html
 	}
 	handle @static {
-		# no-cache on everything — reload after deploy always gets fresh files.
+		# no-cache on everything -- reload after deploy always gets fresh files.
 		# Vite hashes JS/CSS filenames so browsers won't re-request those anyway
 		# (different filename = different URL = no cache hit to worry about).
 		header Cache-Control "no-cache"
