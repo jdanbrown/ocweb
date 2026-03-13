@@ -15,9 +15,6 @@ function show_cmd() {
 # - Symlink .venv into the worktree so pyright can find it (pyrightconfig.json points to ./.venv)
 if [ -f /opt/dancodes/.venv/pyvenv.cfg ]; then
   VENV=/opt/dancodes/.venv
-elif [ -f /opt/dancodes/sidecar/.venv/pyvenv.cfg ]; then
-  # Legacy path -- remove after next deploy moves venv to /opt/dancodes/.venv
-  VENV=/opt/dancodes/sidecar/.venv
 else
   VENV=.venv
   [ -f "$VENV/pyvenv.cfg" ] || show_cmd uv venv "$VENV"
