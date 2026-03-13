@@ -1,8 +1,6 @@
 # Backlog (see AGENTS.md)
 - [2026-03-13] Fix: auto-tail no longer works when scroll is at bottom (even after pressing scroll-to-bottom button). Scroll never moves on its own. This used to work.
 - [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
-- [2026-03-13] Fix: auto-tail no longer works when scroll is at bottom (even after pressing scroll-to-bottom button). Scroll never moves on its own. This used to work.
-- [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
 - [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
 - [2026-03-04] Iron out git commit workflow in prod so that llm doesn't have to flail with author (and maybe more)
 - [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)
