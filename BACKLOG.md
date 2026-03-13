@@ -1,4 +1,6 @@
 # Backlog (see AGENTS.md)
+- [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
+- [2026-03-04] Iron out git commit workflow in prod so that llm doesn't have to flail with author (and maybe more)
 - [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)
 - [2026-03-04] Show token totals in the top bar
 - [2026-03-04] Show timestamps on each chat output (alongside tokens)
