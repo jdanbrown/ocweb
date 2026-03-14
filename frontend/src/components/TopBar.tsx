@@ -1,4 +1,4 @@
-import { RotateCw, Search } from "lucide-react";
+import { Lock, RotateCw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cloneAndSelectRepo, loadRepoPickerData, selectRepo, setSidebarOpen, useStore } from "../lib/store";
 
@@ -99,7 +99,7 @@ function RepoPickerInline() {
               >
                 <span className="picker-item-name">{r.full_name.split("/").pop()}</span>
                 {r.cloned && <span className="badge cloned">cloned</span>}
-                {r.private && <span className="badge private">private</span>}
+                {r.private && <Lock size={10} className="private-icon" />}
               </div>
             ))}
           </div>

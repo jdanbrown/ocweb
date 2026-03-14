@@ -718,9 +718,9 @@ textarea:focus {
   background: var(--green);
   color: #000;
 }
-.badge.private {
-  background: var(--orange);
-  color: #000;
+.private-icon {
+  color: #888;
+  flex-shrink: 0;
 }
 
 /* Model star */
