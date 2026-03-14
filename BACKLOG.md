@@ -2,7 +2,6 @@
 - [2026-03-13] Fix: auto-tail no longer works when scroll is at bottom (even after pressing scroll-to-bottom button). Scroll never moves on its own. This used to work.
 - [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
 - [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
-- [2026-03-04] Iron out git commit workflow in prod so that llm doesn't have to flail with author (and maybe more)
 - [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)
 - [2026-03-04] Show token totals in the top bar
 - [2026-03-04] Show timestamps on each chat output (alongside tokens)
@@ -35,6 +34,5 @@
 - [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?
 - [2026-03-02] Frontend disconnect/reconnect doesn't reflect interim progress
   - After closing and reopening the browser, the UI shows no updates that happened while disconnected
-- [2026-03-02] In git commit, what should author be?
 - [2026-03-01] Update formatting on backend python logging to be not horribly ugly and hard to read
 - [2026-02-28] Frontend debug log panel -- intercept console.log, show in a scrollable panel in the UI, easy to copy/paste from phone for diagnostics

@@ -227,6 +227,9 @@ def clone_repo(req: CloneRequest) -> dict[str, str]:
     result = _run(["git", "clone", _clone_url(req.repo), dest])
     if result.returncode != 0:
         raise HTTPException(status_code=500, detail=result.stderr)
+    # Set git author so LLM sessions can commit without manual config
+    _run(["git", "config", "user.name", "dancodes"], cwd=dest)
+    _run(["git", "config", "user.email", "dancodes@users.noreply.github.com"], cwd=dest)
     return {"status": "cloned", "path": dest}
 
 
