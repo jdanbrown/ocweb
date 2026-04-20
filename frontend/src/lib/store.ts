@@ -152,22 +152,6 @@ export function viewedSessionId(): string | null {
   return state.viewStack.at(-1)?.sessionId ?? state.currentSessionId;
 }
 
-// --- Debug logging (temporary) ---
-// Pushes a synthetic error-role message into the currently-viewed session's
-// message list so event traces show up inline in the chat. Remove along with
-// any callers once the observability task is done.
-export function debugLog(text: string) {
-  const sid = viewedSessionId();
-  if (!sid) return;
-  if (!state.messages[sid]) state.messages[sid] = [];
-  const id = `dbg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  state.messages[sid].push({
-    info: { id, role: "error", sessionID: sid },
-    parts: [{ id: `${id}-p`, type: "text", text: `[debug] ${text}` }],
-  });
-  emit();
-}
-
 function sessionUpdatedAt(s: Session): number {
   return s.time_updated ?? s.timeUpdated ?? 0;
 }

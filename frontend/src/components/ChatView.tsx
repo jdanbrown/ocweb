@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { dirFor, openSubagent, rejectQuestion, replyQuestion, useStore } from "../lib/store";
 import type { Message, MessagePart, PendingQuestion, QuestionInfo } from "../lib/types";
+import { SCROLL_TO_TOP_EVENT } from "./TopBar";
 
 export function ChatView() {
   const { currentSessionId, currentRepo, messages, generating, streamingParts, viewStack } = useStore();
@@ -34,6 +35,13 @@ export function ChatView() {
   function scrollToBottom() {
     containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
   }
+
+  // Tap the top bar's dead zone to scroll chat to top (iOS convention)
+  useEffect(() => {
+    const handler = () => containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    window.addEventListener(SCROLL_TO_TOP_EVENT, handler);
+    return () => window.removeEventListener(SCROLL_TO_TOP_EVENT, handler);
+  }, []);
 
   if (!currentRepo) {
     return <div className="chat-view" />;

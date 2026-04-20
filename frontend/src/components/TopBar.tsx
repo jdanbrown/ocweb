@@ -1,5 +1,5 @@
 import { ChevronLeft, Lock, RotateCw, Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cloneAndSelectRepo,
   closeSubagent,
@@ -8,6 +8,11 @@ import {
   setSidebarOpen,
   useStore,
 } from "../lib/store";
+
+// Tapping the top bar's "dead zones" (session label, spacer) scrolls chat to top,
+// matching the iOS convention of tapping the status/title bar to scroll up.
+// We dispatch a custom event that ChatView listens for.
+export const SCROLL_TO_TOP_EVENT = "dancodes:scroll-to-top";
 
 export function TopBar() {
   const { sidebarOpen, sessions, currentSessionId, viewStack } = useStore();
@@ -19,8 +24,16 @@ export function TopBar() {
   const rootLabel = rootSession?.title || (currentSessionId ? currentSessionId.slice(0, 14) : null);
   const sessionLabel = topView ? topView.title : rootLabel;
 
+  // Scroll-to-top on tap of non-interactive top-bar areas
+  const onTopBarClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Skip if the tap hit a button, link, picker, or other interactive element
+    if (target.closest(".top-bar-btn, .top-bar-repo-picker, .env-toggle, button, a, input")) return;
+    window.dispatchEvent(new Event(SCROLL_TO_TOP_EVENT));
+  }, []);
+
   return (
-    <div className="top-bar">
+    <div className="top-bar" onClick={onTopBarClick}>
       {inSubagentView ? (
         <span className="top-bar-btn" onClick={() => closeSubagent()}>
           <ChevronLeft size={18} />
