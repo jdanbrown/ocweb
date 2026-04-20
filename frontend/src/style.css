@@ -328,7 +328,8 @@ button {
 /* --- Messages (all left-aligned, like opencode CLI) --- */
 .msg {
   padding: 0.5rem 0.75rem;
-  border-radius: 4px;
+  /* Square corners on the left so the accent stripe reads as one unbroken edge */
+  border-radius: 0 4px 4px 0;
   font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
