@@ -62,8 +62,7 @@ button {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  /* Push below iPhone status bar / notch when running in standalone PWA mode */
-  padding: env(safe-area-inset-top, 0) 0.75rem 0;
+  padding: 0 0.75rem;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
