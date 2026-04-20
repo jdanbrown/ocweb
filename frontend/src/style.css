@@ -423,6 +423,27 @@ button {
   color: var(--red);
 }
 
+/* Subagent "view" affordance on task tool parts.
+ * Shown inline next to the tool title; tappable to open the subagent session. */
+.subagent-view-link {
+  font-size: 11px;
+  color: var(--blue);
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--blue);
+  border-radius: 3px;
+  cursor: pointer;
+  /* Don't let this span grow to fill the header flex line */
+  flex-shrink: 0;
+}
+/* In completed-state .tool-header (flex row), push the view button before the collapse hint */
+.tool-header .subagent-view-link {
+  margin-left: auto;
+}
+.tool-header .subagent-view-link + .tool-collapse-hint {
+  margin-left: 0.5rem;
+}
+
 /* Question tool -- interactive tap-boxes while awaiting user reply */
 .msg-part.tool.question-pending {
   /* Highlight to draw attention: this needs user input to unblock the assistant */
@@ -681,6 +702,10 @@ textarea {
 textarea:focus {
   outline: none;
   border-color: var(--blue);
+}
+textarea:disabled {
+  opacity: 0.5;
+  color: var(--dim);
 }
 .btn {
   background: var(--bg3);

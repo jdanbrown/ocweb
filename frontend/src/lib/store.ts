@@ -28,6 +28,7 @@ import type {
   Repo,
   SelectedModel,
   Session,
+  SubagentView,
   Worktree,
 } from "./types";
 
@@ -65,6 +66,11 @@ interface AppState {
   // carries callID but not requestID, so callID is what the UI can look up with.
   pendingQuestions: Record<string, PendingQuestion>;
 
+  // Subagent view stack: when a user taps a `task` tool call, we push the subagent's
+  // session onto the stack and the UI shows that session instead of the root. Nested
+  // subagents push further. Empty stack = viewing currentSessionId.
+  viewStack: SubagentView[];
+
   // SSE
   sseStreams: Record<string, EventSource>;
 
@@ -89,6 +95,7 @@ const state: AppState = {
   providers: [],
   connectedProviders: [],
   pendingQuestions: {},
+  viewStack: [],
   sseStreams: {},
   sidebarOpen: false,
   version: null,
@@ -132,7 +139,17 @@ export function getState(): AppState {
 export function dirFor(sessionId: string): string | undefined {
   if (state.sessionDirs[sessionId]) return state.sessionDirs[sessionId];
   const s = state.sessions.find((s) => s.id === sessionId);
-  return s?.directory;
+  if (s?.directory) return s.directory;
+  // Subagent sessions aren't in `sessions` (filtered out of sidebar) or `sessionDirs`
+  // (not persisted). When one is open via the view stack, read its directory from there.
+  const v = state.viewStack.find((v) => v.sessionId === sessionId);
+  return v?.directory;
+}
+
+// The currently-viewed session id: top of view stack if nonempty, else the root session.
+// All user-facing UI (ChatView, InputArea Stop/Send, TopBar label) keys off this.
+export function viewedSessionId(): string | null {
+  return state.viewStack.at(-1)?.sessionId ?? state.currentSessionId;
 }
 
 function sessionUpdatedAt(s: Session): number {
@@ -167,6 +184,7 @@ export async function selectRepo(repo: Repo) {
   state.currentRepo = repo;
   state.sessions = [];
   state.currentSessionId = null;
+  state.viewStack = [];
   saveLastRepo(repo);
   emit();
   await loadSessions();
@@ -206,6 +224,7 @@ export async function loadSessions() {
 export async function selectSession(id: string) {
   state.currentSessionId = id;
   state.sidebarOpen = false;
+  state.viewStack = [];
   saveLastSession(id);
   emit();
   if (!state.messages[id]) {
@@ -235,8 +254,10 @@ async function ensureWorktree(sessionId: string): Promise<string | undefined> {
   return dir;
 }
 
-async function fetchMessages(id: string) {
-  const dir = await ensureWorktree(id);
+async function fetchMessages(id: string, dirOverride?: string) {
+  // For subagent sessions, the caller passes the parent worktree dir directly;
+  // skip ensureWorktree (it would parse `id` as a worktree name and fail to match).
+  const dir = dirOverride ?? (await ensureWorktree(id));
   try {
     const data = await get(`/session/${id}/message`, { directory: dir });
     state.messages[id] = Array.isArray(data) ? (data as Message[]) : [];
@@ -275,7 +296,8 @@ export async function sendPrompt(text: string) {
 }
 
 export async function abortSession() {
-  const sid = state.currentSessionId;
+  // Abort whatever session is currently being viewed (subagent if stack is nonempty).
+  const sid = viewedSessionId();
   if (!sid) return;
   const dir = dirFor(sid);
   try {
@@ -305,6 +327,7 @@ export async function startNewSession(): Promise<string | null> {
     }
     state.currentSessionId = session.id;
     state.sidebarOpen = false;
+    state.viewStack = [];
     emit();
     syncSSE();
     return session.id;
@@ -332,9 +355,31 @@ export async function deleteSession(id: string) {
   saveSessionDirs(state.sessionDirs);
   if (state.currentSessionId === id) {
     state.currentSessionId = null;
+    state.viewStack = [];
   }
   emit();
   syncSSE();
+}
+
+// --- Subagent view stack ---
+
+// Open a subagent session in a view layered on top of the current session.
+// Called when the user taps a `task` tool call. Idempotent: tapping the same
+// subagent again (or a nested subagent) just pushes another entry.
+export async function openSubagent(view: SubagentView) {
+  state.viewStack.push(view);
+  state.sidebarOpen = false;
+  emit();
+  if (!state.messages[view.sessionId]) {
+    await fetchMessages(view.sessionId, view.directory);
+  }
+}
+
+// Pop one level of the view stack (back-arrow / edge-swipe).
+export function closeSubagent() {
+  if (state.viewStack.length === 0) return;
+  state.viewStack.pop();
+  emit();
 }
 
 // --- Question tool (user-visible prompts from the assistant) ---

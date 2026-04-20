@@ -1,18 +1,35 @@
-import { Lock, RotateCw, Search } from "lucide-react";
+import { ChevronLeft, Lock, RotateCw, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { cloneAndSelectRepo, loadRepoPickerData, selectRepo, setSidebarOpen, useStore } from "../lib/store";
+import {
+  cloneAndSelectRepo,
+  closeSubagent,
+  loadRepoPickerData,
+  selectRepo,
+  setSidebarOpen,
+  useStore,
+} from "../lib/store";
 
 export function TopBar() {
-  const { sidebarOpen, sessions, currentSessionId } = useStore();
+  const { sidebarOpen, sessions, currentSessionId, viewStack } = useStore();
+  const topView = viewStack.at(-1);
+  const inSubagentView = !!topView;
 
-  const currentSession = sessions.find((s) => s.id === currentSessionId);
-  const sessionLabel = currentSession?.title || (currentSessionId ? currentSessionId.slice(0, 14) : null);
+  // Session label: subagent title when viewing a subagent, else the root session's title
+  const rootSession = sessions.find((s) => s.id === currentSessionId);
+  const rootLabel = rootSession?.title || (currentSessionId ? currentSessionId.slice(0, 14) : null);
+  const sessionLabel = topView ? topView.title : rootLabel;
 
   return (
     <div className="top-bar">
-      <span className="top-bar-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
-        &#9776;
-      </span>
+      {inSubagentView ? (
+        <span className="top-bar-btn" onClick={() => closeSubagent()}>
+          <ChevronLeft size={18} />
+        </span>
+      ) : (
+        <span className="top-bar-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+          &#9776;
+        </span>
+      )}
       <div className="top-bar-info">
         <RepoPickerInline />
         {sessionLabel && <div className="top-bar-session">{sessionLabel}</div>}

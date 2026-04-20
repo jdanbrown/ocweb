@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { rejectQuestion, replyQuestion, useStore } from "../lib/store";
+import { dirFor, openSubagent, rejectQuestion, replyQuestion, useStore } from "../lib/store";
 import type { Message, MessagePart, PendingQuestion, QuestionInfo } from "../lib/types";
 
 export function ChatView() {
-  const { currentSessionId, currentRepo, messages, generating, streamingParts } = useStore();
+  const { currentSessionId, currentRepo, messages, generating, streamingParts, viewStack } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const isAtBottom = useRef(true);
 
-  const msgs = currentSessionId ? (messages[currentSessionId] ?? []) : [];
-  const activeDelta = currentSessionId ? (streamingParts[currentSessionId] ?? {}) : {};
+  // Which session to display: subagent if view stack nonempty, else root session
+  const viewedId = viewStack.at(-1)?.sessionId ?? currentSessionId;
+  const msgs = viewedId ? (messages[viewedId] ?? []) : [];
+  const activeDelta = viewedId ? (streamingParts[viewedId] ?? {}) : {};
 
   // Track scroll position
   const onScroll = useCallback(() => {
@@ -37,11 +39,11 @@ export function ChatView() {
     return <div className="chat-view" />;
   }
 
-  if (!currentSessionId) {
+  if (!viewedId) {
     return <div className="chat-view" />;
   }
 
-  if (msgs.length === 0 && !generating[currentSessionId]) {
+  if (msgs.length === 0 && !generating[viewedId]) {
     return <div className="chat-view" />;
   }
 
@@ -166,6 +168,19 @@ function ToolPartView({ part }: { part: MessagePart }) {
   const status = st.status;
   const command = toolName === "bash" ? (st.input?.command as string | undefined) : undefined;
 
+  // For task tool parts, extract the subagent session id so we can render a
+  // "view" affordance. opencode sets state.metadata.sessionId when the task tool
+  // creates the subagent session (available during running and after completion).
+  const subagentSessionId =
+    toolName === "task" ? ((st.metadata?.sessionId as string | undefined) ?? undefined) : undefined;
+  function onViewSubagent(e: React.MouseEvent) {
+    e.stopPropagation(); // don't toggle collapse
+    if (!subagentSessionId || !part.sessionID) return;
+    const dir = dirFor(part.sessionID);
+    if (!dir) return;
+    openSubagent({ sessionId: subagentSessionId, directory: dir, title });
+  }
+
   // Question tool: render an interactive prompt while awaiting answer.
   // Falls through to generic rendering once completed.
   if (toolName === "question" && (status === "pending" || status === "running")) {
@@ -184,6 +199,11 @@ function ToolPartView({ part }: { part: MessagePart }) {
     return (
       <div className="msg-part tool running">
         {title} <span className="cursor" />
+        {subagentSessionId && (
+          <span className="subagent-view-link" onClick={onViewSubagent}>
+            view &#8250;
+          </span>
+        )}
         {command && <div className="tool-command">$ {command}</div>}
       </div>
     );
@@ -192,7 +212,14 @@ function ToolPartView({ part }: { part: MessagePart }) {
   if (status === "error") {
     return (
       <div className="msg-part tool errored">
-        <div className="tool-title">{title}</div>
+        <div className="tool-title">
+          {title}
+          {subagentSessionId && (
+            <span className="subagent-view-link" onClick={onViewSubagent}>
+              view &#8250;
+            </span>
+          )}
+        </div>
         {command && <div className="tool-command">$ {command}</div>}
         <div className="tool-error">{st.error ?? "error"}</div>
       </div>
@@ -221,6 +248,11 @@ function ToolPartView({ part }: { part: MessagePart }) {
     <div className="msg-part tool completed">
       <div className="tool-header" onClick={() => setCollapsed(!collapsed)}>
         <span className="tool-title">{title}</span>
+        {subagentSessionId && (
+          <span className="subagent-view-link" onClick={onViewSubagent}>
+            view &#8250;
+          </span>
+        )}
         <span className="tool-collapse-hint">{collapsed ? "show" : "hide"}</span>
       </div>
       {!collapsed && body}

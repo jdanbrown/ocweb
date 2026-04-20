@@ -3,7 +3,7 @@ import { ChatView } from "./components/ChatView";
 import { InputArea } from "./components/InputArea";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { initApp, setSidebarOpen, useStore } from "./lib/store";
+import { closeSubagent, initApp, setSidebarOpen, useStore } from "./lib/store";
 
 // Thresholds for swipe gestures
 // - EDGE_ZONE_PX: only left-edge-starting touches trigger open-sidebar (avoid hijacking text-selection drags elsewhere)
@@ -12,8 +12,9 @@ const EDGE_ZONE_PX = 24;
 const SWIPE_MIN_DX = 60;
 
 export function App() {
-  const { sidebarOpen, currentSessionId, currentRepo } = useStore();
+  const { sidebarOpen, currentSessionId, currentRepo, viewStack } = useStore();
   const initialized = useRef(false);
+  const inSubagentView = viewStack.length > 0;
 
   useEffect(() => {
     if (!initialized.current) {
@@ -33,16 +34,21 @@ export function App() {
       edgeTouchStart.current = null;
     }
   }, []);
-  const onRootTouchEnd = useCallback((e: React.TouchEvent) => {
-    const start = edgeTouchStart.current;
-    edgeTouchStart.current = null;
-    if (!start) return;
-    const dx = e.changedTouches[0].clientX - start.x;
-    const dy = e.changedTouches[0].clientY - start.y;
-    // Horizontal dominance + rightward swipe past threshold
-    if (dx < SWIPE_MIN_DX || Math.abs(dy) > Math.abs(dx)) return;
-    setSidebarOpen(true);
-  }, []);
+  const onRootTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = edgeTouchStart.current;
+      edgeTouchStart.current = null;
+      if (!start) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = e.changedTouches[0].clientY - start.y;
+      // Horizontal dominance + rightward swipe past threshold
+      if (dx < SWIPE_MIN_DX || Math.abs(dy) > Math.abs(dx)) return;
+      // When viewing a subagent, edge-swipe acts as "back" instead of opening the sidebar
+      if (inSubagentView) closeSubagent();
+      else setSidebarOpen(true);
+    },
+    [inSubagentView],
+  );
 
   // Swipe-left on overlay to close sidebar
   // Safe to trigger anywhere on the overlay -- it blocks main-content interactions (including text select) when sidebar is open

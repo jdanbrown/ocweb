@@ -78,6 +78,16 @@ export interface ToolState {
   input?: Record<string, unknown>;
   output?: string;
   error?: string;
+  // Tool-specific metadata (e.g. task tool: { sessionId, model } for the spawned subagent)
+  metadata?: Record<string, unknown>;
+}
+
+// One entry in the subagent view stack -- what session we're viewing and how to reach it.
+// Kept in-memory only (not persisted), because subagent sessions are tied to a parent worktree.
+export interface SubagentView {
+  sessionId: string;
+  directory: string;
+  title: string;
 }
 
 export interface Message {

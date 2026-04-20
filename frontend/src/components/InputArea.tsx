@@ -4,18 +4,23 @@ import { loadFavorites, modelKey } from "../lib/storage";
 import { abortSession, pickModel, sendPrompt, toggleFavorite, useStore } from "../lib/store";
 
 export function InputArea() {
-  const { currentSessionId, generating, selectedModel } = useStore();
+  const { currentSessionId, generating, selectedModel, viewStack } = useStore();
   const [text, setText] = useState("");
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const busy = currentSessionId ? !!generating[currentSessionId] : false;
+  // Viewed session = top of subagent stack or root. Stop/busy key off the viewed session
+  // so that Stop aborts the subagent when you're looking at a running subagent.
+  const viewedId = viewStack.at(-1)?.sessionId ?? currentSessionId;
+  const busy = viewedId ? !!generating[viewedId] : false;
+  const inSubagentView = viewStack.length > 0;
 
-  // Focus textarea when session changes
+  // Focus textarea when root session changes (not when navigating into subagents,
+  // since the textarea is disabled in subagent view anyway)
   useEffect(() => {
-    if (currentSessionId) {
+    if (currentSessionId && !inSubagentView) {
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
-  }, [currentSessionId]);
+  }, [currentSessionId, inSubagentView]);
 
   // Auto-resize textarea -- intentionally re-runs when text changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: need to re-run on text changes
@@ -38,17 +43,30 @@ export function InputArea() {
     <div className="input-area">
       <div className="input-controls">
         <div className="picker-bar-item">
-          <button className="picker-btn" onClick={() => setModelPickerOpen(!modelPickerOpen)}>
+          <button className="picker-btn" onClick={() => setModelPickerOpen(!modelPickerOpen)} disabled={inSubagentView}>
             {selectedModel ? selectedModel.name : "Model..."}
           </button>
-          {modelPickerOpen && <ModelPicker onClose={() => setModelPickerOpen(false)} />}
+          {modelPickerOpen && !inSubagentView && <ModelPicker onClose={() => setModelPickerOpen(false)} />}
         </div>
       </div>
       <div className="prompt-row">
-        <textarea ref={textareaRef} value={text} onChange={(e) => setText(e.target.value)} rows={1} />
+        <textarea
+          ref={textareaRef}
+          value={inSubagentView ? "" : text}
+          onChange={(e) => setText(e.target.value)}
+          rows={1}
+          disabled={inSubagentView}
+          placeholder={inSubagentView ? "Subagent session (read-only)" : undefined}
+        />
         {busy ? (
           <button className="btn send-btn stop" onClick={abortSession}>
             &#9632; Stop
+          </button>
+        ) : inSubagentView ? (
+          // Placeholder to keep the Stop position stable when the subagent is idle.
+          // Disabled Send so the button layout doesn't shift and tapping does nothing.
+          <button className="btn send-btn" disabled>
+            Send
           </button>
         ) : (
           <button className="btn send-btn" onClick={handleSend} disabled={!text.trim()}>
