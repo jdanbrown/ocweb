@@ -22,7 +22,9 @@ import type {
   Message,
   MessageInfo,
   MessagePart,
+  PendingQuestion,
   Provider,
+  QuestionInfo,
   Repo,
   SelectedModel,
   Session,
@@ -58,6 +60,11 @@ interface AppState {
   providers: { id: string; name: string; models: { id: string; name: string }[] }[];
   connectedProviders: string[];
 
+  // Pending question tool calls awaiting user reply.
+  // Keyed by callID (unique per tool invocation), not requestID -- the tool part
+  // carries callID but not requestID, so callID is what the UI can look up with.
+  pendingQuestions: Record<string, PendingQuestion>;
+
   // SSE
   sseStreams: Record<string, EventSource>;
 
@@ -81,6 +88,7 @@ const state: AppState = {
   selectedModel: null,
   providers: [],
   connectedProviders: [],
+  pendingQuestions: {},
   sseStreams: {},
   sidebarOpen: false,
   version: null,
@@ -203,6 +211,8 @@ export async function selectSession(id: string) {
   if (!state.messages[id]) {
     await fetchMessages(id);
   }
+  const dir = dirFor(id);
+  if (dir) loadPendingQuestions(dir);
 }
 
 async function ensureWorktree(sessionId: string): Promise<string | undefined> {
@@ -325,6 +335,68 @@ export async function deleteSession(id: string) {
   }
   emit();
   syncSSE();
+}
+
+// --- Question tool (user-visible prompts from the assistant) ---
+
+// Fetch pending questions for a directory and merge into state.
+// Called on session select so reloads/new tabs see any outstanding questions.
+async function loadPendingQuestions(dir: string) {
+  try {
+    const data = (await get("/question", { directory: dir })) as Array<{
+      id: string;
+      sessionID: string;
+      questions: QuestionInfo[];
+      tool?: { messageID: string; callID: string };
+    }> | null;
+    if (!Array.isArray(data)) return;
+    let changed = false;
+    for (const req of data) {
+      if (!req.tool?.callID) continue; // only handle tool-originated questions
+      const pq: PendingQuestion = {
+        requestID: req.id,
+        sessionID: req.sessionID,
+        callID: req.tool.callID,
+        questions: req.questions,
+      };
+      state.pendingQuestions[pq.callID] = pq;
+      changed = true;
+    }
+    if (changed) emit();
+  } catch (e) {
+    console.debug("loadPendingQuestions:", e);
+  }
+}
+
+// Answer a pending question. `answers` is one array per question in the request
+// (each array is the selected labels, or custom-typed strings).
+export async function replyQuestion(callID: string, answers: string[][]) {
+  const pq = state.pendingQuestions[callID];
+  if (!pq) return;
+  const dir = dirFor(pq.sessionID);
+  try {
+    await post(`/question/${pq.requestID}/reply`, { answers }, { directory: dir });
+    // Optimistic cleanup -- SSE `question.replied` will also clear this.
+    delete state.pendingQuestions[callID];
+    emit();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    alert(`Reply failed: ${msg}`);
+  }
+}
+
+export async function rejectQuestion(callID: string) {
+  const pq = state.pendingQuestions[callID];
+  if (!pq) return;
+  const dir = dirFor(pq.sessionID);
+  try {
+    await post(`/question/${pq.requestID}/reject`, undefined, { directory: dir });
+    delete state.pendingQuestions[callID];
+    emit();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    alert(`Reject failed: ${msg}`);
+  }
 }
 
 // --- Repo management ---
@@ -605,6 +677,38 @@ function handleEvent(raw: string) {
     if (idx >= 0) msg.parts[idx] = part;
     else msg.parts.push(part);
     emit();
+  }
+
+  // Question events
+  if (type === "question.asked") {
+    const req = props as {
+      id?: string;
+      sessionID?: string;
+      questions?: QuestionInfo[];
+      tool?: { messageID?: string; callID?: string };
+    };
+    if (req.id && req.sessionID && req.questions && req.tool?.callID) {
+      state.pendingQuestions[req.tool.callID] = {
+        requestID: req.id,
+        sessionID: req.sessionID,
+        callID: req.tool.callID,
+        questions: req.questions,
+      };
+      emit();
+    }
+  }
+
+  if (type === "question.replied" || type === "question.rejected") {
+    const { requestID } = props as { requestID?: string };
+    if (requestID) {
+      const callID = Object.keys(state.pendingQuestions).find(
+        (cid) => state.pendingQuestions[cid].requestID === requestID,
+      );
+      if (callID) {
+        delete state.pendingQuestions[callID];
+        emit();
+      }
+    }
   }
 
   if (type === "message.part.delta") {

@@ -422,6 +422,96 @@ button {
 .msg-part.tool.errored .tool-error {
   color: var(--red);
 }
+
+/* Question tool -- interactive tap-boxes while awaiting user reply */
+.msg-part.tool.question-pending {
+  /* Highlight to draw attention: this needs user input to unblock the assistant */
+  border: 1px solid var(--orange);
+}
+.msg-part.tool.question-pending .tool-title {
+  color: var(--orange);
+}
+.question-prompt {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.question-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.question-text {
+  font-size: 13px;
+  color: var(--text);
+}
+.question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.question-option {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  /* Allow the user to long-press for text selection without hijacking touches */
+  user-select: text;
+}
+.question-option.selected {
+  border-color: var(--orange);
+  background: rgba(210, 153, 34, 0.08);
+}
+.question-option-label {
+  font-size: 13px;
+  color: var(--text);
+}
+.question-option-description {
+  font-size: 11px;
+  color: var(--dim);
+  margin-top: 0.15rem;
+}
+.question-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+.question-send,
+.question-dismiss {
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  padding: 0.35rem 0.8rem;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.question-send {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.question-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.question-wait {
+  margin-top: 0.4rem;
+  color: var(--dim);
+  font-size: 12px;
+}
+.question-wait-note {
+  margin-bottom: 0.3rem;
+}
+.question-answered {
+  margin-top: 0.2rem;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
 /* Edit diff */
 .edit-diff {
   margin-top: 0.2rem;

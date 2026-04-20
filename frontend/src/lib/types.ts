@@ -45,12 +45,31 @@ export interface MessagePart {
   messageID?: string;
   text?: string;
   tool?: string;
+  callID?: string; // opencode tool call id (only on tool parts; matches PendingQuestion.callID)
   state?: ToolState;
   tokens?: {
     input?: number;
     output?: number;
     cache?: { read?: number };
   };
+}
+
+// Matches opencode's Question.Info (see packages/opencode/src/question/index.ts)
+export interface QuestionInfo {
+  question: string;
+  header: string;
+  options: { label: string; description: string }[];
+  multiple?: boolean;
+  custom?: boolean;
+}
+
+// One outstanding `question.asked` request, awaiting user reply.
+// Keyed by callID in the store; needs requestID to POST the reply.
+export interface PendingQuestion {
+  requestID: string;
+  sessionID: string;
+  callID: string;
+  questions: QuestionInfo[];
 }
 
 export interface ToolState {

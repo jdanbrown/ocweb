@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useStore } from "../lib/store";
-import type { Message, MessagePart } from "../lib/types";
+import { rejectQuestion, replyQuestion, useStore } from "../lib/store";
+import type { Message, MessagePart, PendingQuestion, QuestionInfo } from "../lib/types";
 
 export function ChatView() {
   const { currentSessionId, currentRepo, messages, generating, streamingParts } = useStore();
@@ -157,6 +157,7 @@ const COLLAPSED_BY_DEFAULT = new Set(["read", "glob", "grep", "task"]);
 function ToolPartView({ part }: { part: MessagePart }) {
   const defaultCollapsed = COLLAPSED_BY_DEFAULT.has(part.tool ?? "");
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const { pendingQuestions } = useStore();
   const st = part.state;
   if (!st) return null;
 
@@ -164,6 +165,20 @@ function ToolPartView({ part }: { part: MessagePart }) {
   const title = st.title ?? (toolName || "tool");
   const status = st.status;
   const command = toolName === "bash" ? (st.input?.command as string | undefined) : undefined;
+
+  // Question tool: render an interactive prompt while awaiting answer.
+  // Falls through to generic rendering once completed.
+  if (toolName === "question" && (status === "pending" || status === "running")) {
+    const pq = part.callID ? pendingQuestions[part.callID] : undefined;
+    // Fallback to input.questions if pendingQuestions is empty (page load races, etc.)
+    const questions = pq?.questions ?? (st.input?.questions as QuestionInfo[] | undefined) ?? [];
+    return (
+      <div className="msg-part tool question-pending">
+        <div className="tool-title">{title}</div>
+        <QuestionPrompt pq={pq} questions={questions} />
+      </div>
+    );
+  }
 
   if (status === "pending" || status === "running") {
     return (
@@ -191,6 +206,8 @@ function ToolPartView({ part }: { part: MessagePart }) {
     body = <TodoBody input={st.input} />;
   } else if (toolName === "edit") {
     body = <EditDiffBody input={st.input} />;
+  } else if (toolName === "question") {
+    body = <QuestionAnswered input={st.input} output={output} />;
   } else {
     body = (
       <>
@@ -240,6 +257,129 @@ function EditDiffBody({ input }: { input?: Record<string, unknown> }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Interactive prompt for a question tool call awaiting user reply.
+// - Single question + single-select: tap an option to submit immediately.
+// - Multi-select (multiple:true) or multiple questions: track local selections,
+//   submit via a Send button.
+// - Reject button dismisses all questions in the request.
+function QuestionPrompt({ pq, questions }: { pq: PendingQuestion | undefined; questions: QuestionInfo[] }) {
+  // selected[i] = array of labels chosen for question i
+  const [selected, setSelected] = useState<string[][]>(() => questions.map(() => []));
+
+  if (questions.length === 0) {
+    return <div className="question-wait">Waiting for question details...</div>;
+  }
+
+  // If we don't have a requestID (pq not loaded yet), show read-only.
+  // This is rare; it means the question.asked event hasn't arrived (or we missed it).
+  if (!pq) {
+    return (
+      <div className="question-wait">
+        <div className="question-wait-note">Loading question...</div>
+        {questions.map((q, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: order matches backend
+          <div key={i} className="question-block">
+            <div className="question-text">{q.question}</div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const singleQuestion = questions.length === 1;
+  const onlyOne = singleQuestion && !questions[0].multiple;
+  const callID = pq.callID;
+
+  function toggle(qi: number, label: string, multiple: boolean) {
+    setSelected((prev) => {
+      const next = prev.map((a) => [...a]);
+      const arr = next[qi];
+      const idx = arr.indexOf(label);
+      if (multiple) {
+        if (idx >= 0) arr.splice(idx, 1);
+        else arr.push(label);
+      } else {
+        next[qi] = idx >= 0 ? [] : [label];
+      }
+      return next;
+    });
+  }
+
+  function submit(overrides?: string[][]) {
+    const answers = overrides ?? selected;
+    replyQuestion(callID, answers);
+  }
+
+  return (
+    <div className="question-prompt">
+      {questions.map((q, qi) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: order is stable per request
+        <div key={qi} className="question-block">
+          <div className="question-text">{q.question}</div>
+          <div className="question-options">
+            {q.options.map((opt) => {
+              const isSelected = selected[qi].includes(opt.label);
+              const isImmediate = onlyOne; // tap-to-submit
+              return (
+                <div
+                  key={opt.label}
+                  className={`question-option ${isSelected ? "selected" : ""}`}
+                  onClick={() => {
+                    if (isImmediate) {
+                      submit([[opt.label]]);
+                    } else {
+                      toggle(qi, opt.label, !!q.multiple);
+                    }
+                  }}
+                >
+                  <div className="question-option-label">{opt.label}</div>
+                  {opt.description && <div className="question-option-description">{opt.description}</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="question-actions">
+        {!onlyOne && (
+          <button
+            type="button"
+            className="question-send"
+            onClick={() => submit()}
+            disabled={selected.every((a) => a.length === 0)}
+          >
+            Send
+          </button>
+        )}
+        <button type="button" className="question-dismiss" onClick={() => rejectQuestion(callID)}>
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Read-only view of a completed question tool call: show the questions and the answers.
+function QuestionAnswered({ input, output }: { input?: Record<string, unknown>; output: string }) {
+  const questions = (input?.questions as QuestionInfo[] | undefined) ?? [];
+  // Try to parse answers from metadata is not available here; fall back to output text.
+  // The completed tool state has `output = "User has answered your questions: "q1"="a1", ..."
+  if (questions.length === 0) {
+    return output ? <div className="tool-output">{output}</div> : null;
+  }
+  return (
+    <div className="question-answered">
+      {questions.map((q, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: order is stable
+        <div key={i} className="question-block">
+          <div className="question-text">{q.question}</div>
+        </div>
+      ))}
+      {output && <div className="tool-output">{output}</div>}
     </div>
   );
 }
