@@ -4,7 +4,8 @@ import { DEFAULT_FAVORITE_MODELS, DEFAULT_MODEL } from "./default_favorite_model
 import type { Repo, SelectedModel } from "./types";
 
 const LS_LAST_REPO = "dancodes:lastRepo";
-const LS_LAST_SESSION = "dancodes:lastSession";
+const LS_LAST_SESSION = "dancodes:lastSession"; // legacy global last-session (kept for migration)
+const LS_LAST_SESSION_BY_REPO = "dancodes:lastSessionByRepo"; // preferred: per-repo last-session
 const LS_LAST_MODEL = "dancodes:lastModel";
 const LS_SESSION_DIRS = "dancodes:sessionDirs";
 const LS_FAVORITES = "dancodes:favoriteModels";
@@ -29,11 +30,26 @@ export function saveLastRepo(repo: Repo) {
   safeSet(LS_LAST_REPO, repo);
 }
 
+// Legacy single global last-session. Kept as a fallback so we don't lose the
+// user's place right after upgrade (before we've recorded a per-repo entry).
 export function loadLastSession(): string | null {
   return safeGet<string>(LS_LAST_SESSION);
 }
 export function saveLastSession(id: string) {
   safeSet(LS_LAST_SESSION, id);
+}
+
+// Per-repo last-session: when switching between repos, restore the chat the user
+// was last in for that repo (not just the globally-most-recent chat).
+// Key is the repo full name (e.g. "owner/name").
+export function loadLastSessionByRepo(repoName: string): string | null {
+  const map = safeGet<Record<string, string>>(LS_LAST_SESSION_BY_REPO) ?? {};
+  return map[repoName] ?? null;
+}
+export function saveLastSessionByRepo(repoName: string, sessionId: string) {
+  const map = safeGet<Record<string, string>>(LS_LAST_SESSION_BY_REPO) ?? {};
+  map[repoName] = sessionId;
+  safeSet(LS_LAST_SESSION_BY_REPO, map);
 }
 
 export function loadLastModel(): SelectedModel {

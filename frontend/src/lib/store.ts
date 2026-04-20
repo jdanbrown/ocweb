@@ -9,12 +9,14 @@ import {
   loadLastModel,
   loadLastRepo,
   loadLastSession,
+  loadLastSessionByRepo,
   loadSessionDirs,
   modelKey,
   saveFavorites,
   saveLastModel,
   saveLastRepo,
   saveLastSession,
+  saveLastSessionByRepo,
   saveSessionDirs,
 } from "./storage";
 import type {
@@ -66,6 +68,12 @@ interface AppState {
   // carries callID but not requestID, so callID is what the UI can look up with.
   pendingQuestions: Record<string, PendingQuestion>;
 
+  // Queued messages per session: prompts the user typed while an agent turn was
+  // already running. Flushed (in order) as soon as the turn goes idle. Not
+  // persisted -- if the user reloads mid-turn, the queue is lost (acceptable
+  // tradeoff vs the complexity of surfacing queued state on reconnect).
+  queuedMessages: Record<string, string[]>;
+
   // Subagent view stack: when a user taps a `task` tool call, we push the subagent's
   // session onto the stack and the UI shows that session instead of the root. Nested
   // subagents push further. Empty stack = viewing currentSessionId.
@@ -76,6 +84,7 @@ interface AppState {
 
   // UI
   sidebarOpen: boolean;
+  debugLogOpen: boolean;
   version: { sha: string; time: string } | null;
   opencodeVersion: string | null;
 }
@@ -95,9 +104,11 @@ const state: AppState = {
   providers: [],
   connectedProviders: [],
   pendingQuestions: {},
+  queuedMessages: {},
   viewStack: [],
   sseStreams: {},
   sidebarOpen: false,
+  debugLogOpen: false,
   version: null,
   opencodeVersion: null,
 };
@@ -171,12 +182,36 @@ export function timeAgo(ts: number): string {
   return `${days}d ago`;
 }
 
+// "3:42 PM" for today, "Apr 20 15:42" for other days. Locale-aware.
+// Used on individual chat messages to provide a sense of when things happened,
+// without pinning to a specific timezone (local time).
+export function formatMsgTime(ts: number): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
 
 export function setSidebarOpen(open: boolean) {
   state.sidebarOpen = open;
+  emit();
+}
+
+export function setDebugLogOpen(open: boolean) {
+  state.debugLogOpen = open;
   emit();
 }
 
@@ -190,6 +225,13 @@ export async function selectRepo(repo: Repo) {
   await loadSessions();
   if (state.sessions.length === 0) {
     await startNewSession();
+  } else {
+    // Restore the user's last-viewed session for this repo (falls back to most
+    // recent if no per-repo entry exists or it's been deleted).
+    const saved = loadLastSessionByRepo(repo.name);
+    const sorted = sortedSessions();
+    const resumeId = sorted.find((s) => s.id === saved)?.id ?? sorted[0]?.id;
+    if (resumeId) await selectSession(resumeId);
   }
   syncSSE();
 }
@@ -226,6 +268,7 @@ export async function selectSession(id: string) {
   state.sidebarOpen = false;
   state.viewStack = [];
   saveLastSession(id);
+  if (state.currentRepo) saveLastSessionByRepo(state.currentRepo.name, id);
   emit();
   if (!state.messages[id]) {
     await fetchMessages(id);
@@ -272,6 +315,20 @@ export async function sendPrompt(text: string) {
   const sid = state.currentSessionId;
   if (!sid || !text.trim()) return;
 
+  // If the agent turn is already running, queue this prompt locally and flush
+  // it when the turn completes. Preserves the Stop button (don't lose the
+  // ability to abort) and avoids racing two prompts into opencode.
+  if (state.generating[sid]) {
+    if (!state.queuedMessages[sid]) state.queuedMessages[sid] = [];
+    state.queuedMessages[sid].push(text);
+    emit();
+    return;
+  }
+
+  await _sendPromptNow(sid, text);
+}
+
+async function _sendPromptNow(sid: string, text: string) {
   // Optimistic user message
   if (!state.messages[sid]) state.messages[sid] = [];
   state.messages[sid].push({
@@ -295,6 +352,26 @@ export async function sendPrompt(text: string) {
   }
 }
 
+// Flush any queued messages for a session once its turn goes idle. Called from
+// the status-change paths (SSE session.status, session.error, initial poll).
+// Fires one prompt; subsequent queued prompts fire as the new turn completes.
+function flushQueuedMessages(sid: string) {
+  const queue = state.queuedMessages[sid];
+  if (!queue || queue.length === 0) return;
+  const next = queue.shift();
+  if (queue.length === 0) delete state.queuedMessages[sid];
+  if (next) _sendPromptNow(sid, next);
+}
+
+export function removeQueuedMessage(sid: string, idx: number) {
+  const queue = state.queuedMessages[sid];
+  if (!queue) return;
+  if (idx < 0 || idx >= queue.length) return;
+  queue.splice(idx, 1);
+  if (queue.length === 0) delete state.queuedMessages[sid];
+  emit();
+}
+
 export async function abortSession() {
   // Abort whatever session is currently being viewed (subagent if stack is nonempty).
   const sid = viewedSessionId();
@@ -306,6 +383,11 @@ export async function abortSession() {
     console.warn("abort:", e);
   }
   state.generating[sid] = false;
+  // Explicit stop -> discard queued prompts for the root session (not subagent).
+  // Rationale: the user hit Stop to halt; auto-resuming with their queued text
+  // would surprise them.
+  const rootSid = state.currentSessionId;
+  if (rootSid) delete state.queuedMessages[rootSid];
   emit();
 }
 
@@ -328,6 +410,8 @@ export async function startNewSession(): Promise<string | null> {
     state.currentSessionId = session.id;
     state.sidebarOpen = false;
     state.viewStack = [];
+    saveLastSession(session.id);
+    if (state.currentRepo) saveLastSessionByRepo(state.currentRepo.name, session.id);
     emit();
     syncSSE();
     return session.id;
@@ -614,14 +698,59 @@ export function syncSSE() {
   emit();
 }
 
+// Tracks "have we opened successfully at least once?" per stream.
+// Used so the FIRST onopen is a silent initial connect, and every onopen after
+// that is a reconnect that triggers a re-sync (refetch messages + poll status
+// + reload pending questions). SSE events that happened while we were
+// disconnected are simply dropped by the server, so we have to catch up via
+// REST to avoid the UI falling behind.
+const sseEverConnected = new Set<string>();
+
 function connectSSEForDir(dir: string) {
   const url = `/event?directory=${encodeURIComponent(dir)}`;
   console.log(`SSE: connecting for ${dir}`);
   const es = new EventSource(url);
   state.sseStreams[dir] = es;
-  es.onopen = () => emit();
+  es.onopen = () => {
+    if (sseEverConnected.has(dir)) {
+      console.log(`SSE: reconnected for ${dir}, resyncing`);
+      resyncDir(dir);
+    } else {
+      sseEverConnected.add(dir);
+    }
+    emit();
+  };
   es.onerror = () => emit();
   es.onmessage = (ev) => handleEvent(ev.data);
+}
+
+// Full re-sync for a directory: pull fresh session status, refetch messages for
+// any loaded sessions in this dir, and reload pending questions. Called on SSE
+// reconnect and on page visibility return.
+async function resyncDir(dir: string) {
+  try {
+    await pollSessionStatus(dir);
+    const sessionsInDir = state.sessions.filter((s) => dirFor(s.id) === dir);
+    for (const s of sessionsInDir) {
+      if (state.messages[s.id]) {
+        await fetchMessages(s.id, dir);
+      }
+    }
+    await loadPendingQuestions(dir);
+  } catch (e) {
+    console.warn(`resyncDir(${dir}):`, e);
+  }
+}
+
+// Refresh everything when the tab becomes visible after being hidden.
+// (Browsers throttle SSE aggressively on background tabs; on iOS/Safari the
+// connection can be silently dropped without an error event.)
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    console.log("visibilitychange: visible -> resync all dirs");
+    for (const dir of Object.keys(state.sseStreams)) resyncDir(dir);
+  });
 }
 
 async function pollSessionStatus(dir: string) {
@@ -666,8 +795,11 @@ function handleEvent(raw: string) {
     const sid = props.sessionID as string | undefined;
     const statusType = (props.status as { type?: string })?.type;
     if (sid && statusType) {
+      const wasBusy = !!state.generating[sid];
       state.generating[sid] = statusType !== "idle";
       emit();
+      // Turn went idle -> flush any queued prompts for this session
+      if (wasBusy && statusType === "idle") flushQueuedMessages(sid);
     }
   }
 
@@ -675,6 +807,9 @@ function handleEvent(raw: string) {
     const sid = props.sessionID as string | undefined;
     if (sid) {
       state.generating[sid] = false;
+      // Error ends the turn -- flush queued prompts (user can Stop/remove them
+      // individually if they want to cancel follow-ups)
+      flushQueuedMessages(sid);
       emit();
     }
   }
@@ -815,7 +950,8 @@ export async function initApp() {
   if (state.currentRepo) {
     try {
       await loadSessions();
-      const savedSession = loadLastSession();
+      // Prefer per-repo last-session; fall back to legacy global last-session for migration
+      const savedSession = loadLastSessionByRepo(state.currentRepo.name) ?? loadLastSession();
       const sorted = sortedSessions();
       const resumeId = sorted.find((s) => s.id === savedSession)?.id ?? sorted[0]?.id;
       if (resumeId) {

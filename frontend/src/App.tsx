@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { ChatView } from "./components/ChatView";
+import { DebugLogPanel } from "./components/DebugLogPanel";
 import { InputArea } from "./components/InputArea";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
-import { closeSubagent, initApp, setSidebarOpen, useStore } from "./lib/store";
+import { closeSubagent, initApp, setDebugLogOpen, setSidebarOpen, useStore } from "./lib/store";
 
 // Thresholds for swipe gestures
 // - EDGE_ZONE_PX: only left-edge-starting touches trigger open-sidebar (avoid hijacking text-selection drags elsewhere)
@@ -12,7 +13,7 @@ const EDGE_ZONE_PX = 24;
 const SWIPE_MIN_DX = 60;
 
 export function App() {
-  const { sidebarOpen, currentSessionId, currentRepo, viewStack } = useStore();
+  const { sidebarOpen, currentSessionId, currentRepo, viewStack, debugLogOpen } = useStore();
   const initialized = useRef(false);
   const inSubagentView = viewStack.length > 0;
 
@@ -85,6 +86,7 @@ export function App() {
           <ChatView />
           {(currentSessionId || currentRepo) && <InputArea />}
         </div>
+        {debugLogOpen && <DebugLogPanel onClose={() => setDebugLogOpen(false)} />}
       </div>
     </div>
   );

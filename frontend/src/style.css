@@ -9,8 +9,10 @@
   --bg2: #0a0a0a;
   --bg3: #151515;
   --border: #222;
-  --text: #e5e5e5;
-  --dim: #888;
+  /* Bumped contrast per backlog feedback -- pure white on black is easier to
+   * read in bright environments, and dim text needs to be readable too. */
+  --text: #fff;
+  --dim: #aaa;
   --blue: #58a6ff;
   --green: #3fb950;
   --red: #f85149;
@@ -104,6 +106,12 @@ button {
 }
 .top-bar-spacer {
   flex: 1;
+}
+.top-bar-tokens {
+  font-size: 11px;
+  color: var(--dim);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Inline repo picker in top bar */
@@ -261,10 +269,33 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.session-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 1px;
+}
 .session-time {
   font-size: 10px;
   color: var(--dim);
-  margin-top: 1px;
+}
+.git-stat {
+  font-size: 10px;
+  color: var(--dim);
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.git-stat-clean {
+  opacity: 0.5;
+}
+.git-stat-staged {
+  color: var(--green);
+}
+.git-stat-changed {
+  color: var(--orange);
+}
+.git-stat-ahead {
+  color: var(--blue);
 }
 
 /* Spinner */
@@ -340,6 +371,20 @@ button {
   background: var(--bg3);
   border-left: 3px solid var(--blue);
 }
+.msg.user.queued {
+  opacity: 0.55;
+  border-left-style: dashed;
+}
+.msg-queued-remove {
+  margin-left: 0.5rem;
+  color: var(--dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.msg-queued-remove:hover {
+  color: var(--red);
+}
 .msg.assistant {
   background: var(--bg2);
   border-left: 3px solid var(--dim);
@@ -356,11 +401,28 @@ button {
   margin-bottom: 0.2rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+.msg-role-name {
+  flex-shrink: 0;
 }
 .msg-model {
   font-weight: 400;
   opacity: 0.6;
-  margin-left: 0.3rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.msg-timestamp {
+  margin-left: auto;
+  opacity: 0.6;
+  text-transform: none;
+  letter-spacing: 0;
+  flex-shrink: 0;
 }
 .msg-text {
   white-space: pre-wrap;
@@ -394,6 +456,11 @@ button {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
+}
+.tool-header-running {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .tool-title {
   font-weight: 500;
@@ -600,6 +667,106 @@ button {
 }
 .todo-pending .todo-icon {
   color: var(--dim);
+}
+
+/* --- Markdown rendering ---
+ * Override `white-space: pre-wrap` on the parent part so HTML block structure
+ * controls spacing (headings, lists, paragraphs). Preserve whitespace only
+ * inside <pre>/<code> blocks.
+ */
+.msg-part.markdown {
+  white-space: normal;
+}
+.markdown-body {
+  /* Normalize browser/reset margins so h1/p/ul defaults look reasonable */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+.markdown-body p {
+  margin: 0;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 0.2rem 0;
+}
+.markdown-body h1 {
+  font-size: 1.25em;
+}
+.markdown-body h2 {
+  font-size: 1.15em;
+}
+.markdown-body h3 {
+  font-size: 1.05em;
+}
+.markdown-body h4 {
+  font-size: 1em;
+}
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.5em;
+  margin: 0;
+}
+.markdown-body li {
+  margin: 0.1rem 0;
+}
+.markdown-body a {
+  color: var(--blue);
+  text-decoration: underline;
+}
+.markdown-body code {
+  font-family: var(--font);
+  background: var(--bg3);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+.markdown-body pre {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  overflow-x: auto;
+  font-size: 12px;
+  white-space: pre;
+  margin: 0;
+}
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  border-radius: 0;
+  white-space: pre;
+}
+.markdown-body blockquote {
+  border-left: 3px solid var(--border);
+  padding: 0.1rem 0.6rem;
+  color: var(--dim);
+  margin: 0;
+}
+.markdown-body table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.4rem;
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.3rem 0;
 }
 
 .msg-part.step-finish {
@@ -858,6 +1025,89 @@ textarea:disabled {
 .model-star.starred {
   opacity: 1;
   color: var(--orange);
+}
+
+/* --- Debug log panel ---
+ * Slide-up overlay pinned to the bottom; shows intercepted console output.
+ * Not a full-screen takeover -- user can still interact with top bar to close.
+ */
+.debug-log-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 60%;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5);
+}
+.debug-log-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.debug-log-title {
+  color: var(--text);
+  font-weight: 500;
+}
+.debug-log-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+  font-size: 11px;
+  cursor: pointer;
+}
+.debug-log-btn:hover {
+  background: var(--border);
+}
+.debug-log-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.debug-log-empty {
+  color: var(--dim);
+}
+.debug-log-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.4rem;
+  padding: 0.1rem 0;
+  border-bottom: 1px solid transparent;
+}
+.debug-log-time {
+  color: var(--dim);
+  flex-shrink: 0;
+}
+.debug-log-level {
+  text-transform: uppercase;
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+  align-self: center;
+}
+.debug-log-line.level-error .debug-log-level,
+.debug-log-line.level-error .debug-log-text {
+  color: var(--red);
+}
+.debug-log-line.level-warn .debug-log-level,
+.debug-log-line.level-warn .debug-log-text {
+  color: var(--orange);
+}
+.debug-log-line.level-debug {
+  opacity: 0.7;
 }
 
 /* --- Scrollbar --- */

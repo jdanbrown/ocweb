@@ -1,36 +1,22 @@
 # Backlog (see AGENTS.md)
 - [2026-04-20] question tool: initial render blanks the whole screen; requires page reload to recover
 - [2026-04-20] webfetch tool output should be hidden by default (like read/glob/grep/task)
-- [2026-04-20] When switching back and forth between repos, automatically select the last viewed chat session (per-repo last session, not just global last)
-- [2026-04-20] Render markdown in agent output
-- [2026-04-20] Queue messages while agent turn is in progress (don't lose Stop button -- send queued messages after turn completes)
 - [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
+  - Desktop Enter-to-send is wired; verify on real mobile that Enter=newline
 - [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
-- [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)
-- [2026-03-04] Show token totals in the top bar
-- [2026-03-04] Show timestamps on each chat output (alongside tokens)
-- [2026-03-03] Fix: Scroll in chat doesn't follow when new content appears (only follow when scroll is at bottom, don't jank if scrolled up somewhere)
 - [2026-03-03] Support opencode tui theme json files, and put in my ~/.opencode/themes/jdanbrown.json
 - [2026-03-03] Add image uploads
-- [2026-03-03] Doesn't load on iOS safari, but loads on “save to Home Screen” (which is basically just safari), and loads in iOS chrome and iOS Firefox
+- [2026-03-03] Doesn't load on iOS safari, but loads on "save to Home Screen" (which is basically just safari), and loads in iOS chrome and iOS Firefox
   - Did I end up with bad local storage?
-  - I tried delete site data for fly.dev in iOS settings → apps → safari → advanced, but it still doesn't load
+  - I tried delete site data for fly.dev in iOS settings -> apps -> safari -> advanced, but it still doesn't load
 - [2026-03-03] Long press on user input for copy/revert/fork
 - [2026-03-03] Send button sometimes refuses to trigger during multi-round chat session
   - Maybe after I press stop? But I think not?
-- [2026-03-03] Bash tool outputs should stream
-  - Currently it just shows “bash” with a blinking cursor until the full output is done
-  - Awful UX, I keep thinking it's hung
-- [2026-03-02] Style: More white-on-black, all this medium gray is hard to see
 - [2026-03-02] Find way to make llmjail use local Dockerfile? -- what's the right Dockerfile/script interface to merge these?
 - [2026-03-02] To make dev/check faster for llm, can we run it in dev/docker-shell instead of llmjail (bash tool)? (human needs to be in the loop for this one)
 - [2026-03-02] Three-dots menu in chat header: copy branch (with branch name inline), share session, rename session
 - [2026-03-02] Mode picker in input area (build/plan/etc)
 - [2026-03-02] Photo upload in input area
-- [2026-03-02] Pin all deps versions
 - [2026-03-02] Add text button in top bar to show git stat/diff/log for current chat session
+  - Sidebar now shows per-session git stat summary; a dedicated diff/log view still TBD
 - [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?
-- [2026-03-02] Frontend disconnect/reconnect doesn't reflect interim progress
-  - After closing and reopening the browser, the UI shows no updates that happened while disconnected
-- [2026-03-01] Update formatting on backend python logging to be not horribly ugly and hard to read
-- [2026-02-28] Frontend debug log panel -- intercept console.log, show in a scrollable panel in the UI, easy to copy/paste from phone for diagnostics

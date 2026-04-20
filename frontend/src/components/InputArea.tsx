@@ -3,6 +3,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadFavorites, modelKey } from "../lib/storage";
 import { abortSession, pickModel, sendPrompt, toggleFavorite, useStore } from "../lib/store";
 
+// Desktop detection: hover-capable + fine pointer. Matches laptops/desktops with
+// mouse/trackpad, excludes phones/tablets. Used to wire Enter=Send on desktop
+// while leaving Enter=newline on touch devices (can't easily send a keydown event
+// from an on-screen keyboard without a physical Send key).
+function isDesktopEnv(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches ?? false;
+}
+
 export function InputArea() {
   const { currentSessionId, generating, selectedModel, viewStack } = useStore();
   const [text, setText] = useState("");
@@ -37,6 +46,23 @@ export function InputArea() {
     setText("");
   }, [text, currentSessionId]);
 
+  // Desktop: Enter=Send, Shift/Alt/Ctrl/Meta+Enter=newline. Mobile: leave default
+  // (Enter=newline). Busy state already disables the Send button, but the
+  // keyboard path should also be inert -- we gate on !busy and !inSubagentView.
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key !== "Enter") return;
+      if (!isDesktopEnv()) return;
+      if (e.shiftKey || e.altKey || e.ctrlKey || e.metaKey) return; // modifier => newline
+      if (inSubagentView) return;
+      if (busy) return;
+      if (!text.trim()) return;
+      e.preventDefault();
+      handleSend();
+    },
+    [handleSend, text, busy, inSubagentView],
+  );
+
   if (!currentSessionId) return null;
 
   return (
@@ -54,6 +80,7 @@ export function InputArea() {
           ref={textareaRef}
           value={inSubagentView ? "" : text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeyDown}
           rows={1}
           disabled={inSubagentView}
           placeholder={inSubagentView ? "Subagent session (read-only)" : undefined}

@@ -11,6 +11,14 @@
 - 2026-02-28 32452fe
 
 ## Memory log
+- [2026-04-20] Adding npm deps: install into `/opt/dancodes`, not the worktree
+  - Worktrees symlink `node_modules -> /opt/dancodes/node_modules` (see `dev/check`)
+  - Running `npm install <pkg>` in a worktree CLOBBERS the symlink with a real dir
+  - Correct flow: edit `package.json` in the worktree, then `npm install --prefix /opt/dancodes <pkg>@<ver> --no-save`, then `rm -rf node_modules && ln -s /opt/dancodes/node_modules node_modules`
+  - The Dockerfile's `npm install` populates `/opt/dancodes/node_modules` in prod -- so as long as `package.json` lists the dep, prod will pick it up on next build
+- [2026-04-20] opencode bash tool streams stdout via `ctx.metadata({output: ...})` while running
+  - Shows up in our SSE as `message.part.updated` events with `state.metadata.output` (trailing ~30k chars)
+  - Our ChatView renders this live under running bash parts (ToolPartView)
 - [2026-04-20] Auto-tail: store mutates arrays in place, so `useEffect(..., [msgs])` doesn't fire
   - `emit()` in store.ts does shallow-copy only of top-level state; `state.messages[id]` is the same array reference across renders even as content grows (mutated in place in `handleEvent`)
   - React useEffect does Object.is dep comparison, sees no change, never re-runs -- so previously the auto-scroll never triggered on streaming deltas

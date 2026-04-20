@@ -15,6 +15,9 @@ export interface Worktree {
   repo: string;
   session_id: string;
   path: string;
+  // Lightweight git status for the worktree. Sidecar runs `git status
+  // --porcelain=v2 --branch` on each worktree-list call.
+  git_stat?: { staged: number; changed: number; ahead: number };
 }
 
 export interface Session {
@@ -31,6 +34,8 @@ export interface MessageInfo {
   role: "user" | "assistant" | "error";
   sessionID: string;
   modelID?: string;
+  // Wall-clock ms epoch. `completed` missing => turn still in progress (assistant).
+  time?: { created?: number; completed?: number };
   error?: {
     name?: string;
     message?: string;

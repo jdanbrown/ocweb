@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { dirFor, openSubagent, rejectQuestion, replyQuestion, useStore } from "../lib/store";
+import { renderMarkdown } from "../lib/markdown";
+import {
+  dirFor,
+  formatMsgTime,
+  openSubagent,
+  rejectQuestion,
+  removeQueuedMessage,
+  replyQuestion,
+  useStore,
+} from "../lib/store";
 import type { Message, MessagePart, PendingQuestion, QuestionInfo } from "../lib/types";
 import { SCROLL_TO_TOP_EVENT } from "./TopBar";
 
 export function ChatView() {
-  const { currentSessionId, currentRepo, messages, generating, streamingParts, viewStack } = useStore();
+  const { currentSessionId, currentRepo, messages, generating, streamingParts, viewStack, queuedMessages } = useStore();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const observerRef = useRef<MutationObserver | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -14,6 +23,8 @@ export function ChatView() {
   const viewedId = viewStack.at(-1)?.sessionId ?? currentSessionId;
   const msgs = viewedId ? (messages[viewedId] ?? []) : [];
   const activeDelta = viewedId ? (streamingParts[viewedId] ?? {}) : {};
+  // Queued messages are only meaningful for the root session (not subagents).
+  const queued = currentSessionId && !viewStack.length ? (queuedMessages[currentSessionId] ?? []) : [];
 
   // Track scroll position
   const onScroll = useCallback(() => {
@@ -93,11 +104,35 @@ export function ChatView() {
       {msgs.map((msg) => (
         <MessageBubble key={msg.info.id} msg={msg} activeDelta={activeDelta} />
       ))}
+      {queued.map((text, i) => (
+        <QueuedBubble
+          // biome-ignore lint/suspicious/noArrayIndexKey: order matches backing queue
+          key={`queued-${i}`}
+          text={text}
+          onRemove={() => currentSessionId && removeQueuedMessage(currentSessionId, i)}
+        />
+      ))}
       {showScrollBtn && (
         <button className="scroll-to-bottom" onClick={scrollToBottom}>
           &#8595;
         </button>
       )}
+    </div>
+  );
+}
+
+// Queued-prompt bubble: shown while the agent turn is running. Styled like a
+// user message but dim, with a "queued" label and an X to remove.
+function QueuedBubble({ text, onRemove }: { text: string; onRemove: () => void }) {
+  return (
+    <div className="msg user queued">
+      <div className="msg-role">
+        queued
+        <span className="msg-queued-remove" onClick={onRemove}>
+          &times;
+        </span>
+      </div>
+      <div className="msg-text">{text}</div>
     </div>
   );
 }
@@ -109,6 +144,7 @@ export function ChatView() {
 function MessageBubble({ msg, activeDelta }: { msg: Message; activeDelta: Record<string, boolean> }) {
   const { info, parts } = msg;
   const role = info.role;
+  const ts = info.time?.created ? formatMsgTime(info.time.created) : "";
 
   if (role === "user") {
     const text = parts
@@ -118,7 +154,10 @@ function MessageBubble({ msg, activeDelta }: { msg: Message; activeDelta: Record
     if (!text) return null;
     return (
       <div className="msg user">
-        <div className="msg-role">user</div>
+        <div className="msg-role">
+          <span className="msg-role-name">user</span>
+          {ts && <span className="msg-timestamp">{ts}</span>}
+        </div>
         <div className="msg-text">{text}</div>
       </div>
     );
@@ -128,7 +167,10 @@ function MessageBubble({ msg, activeDelta }: { msg: Message; activeDelta: Record
     const text = parts.map((p) => p.text ?? "").join("");
     return (
       <div className="msg error">
-        <div className="msg-role">error</div>
+        <div className="msg-role">
+          <span className="msg-role-name">error</span>
+          {ts && <span className="msg-timestamp">{ts}</span>}
+        </div>
         <div className="msg-text">{text}</div>
       </div>
     );
@@ -145,8 +187,9 @@ function MessageBubble({ msg, activeDelta }: { msg: Message; activeDelta: Record
   return (
     <div className="msg assistant">
       <div className="msg-role">
-        assistant
+        <span className="msg-role-name">assistant</span>
         {modelLabel && <span className="msg-model">{modelLabel}</span>}
+        {ts && <span className="msg-timestamp">{ts}</span>}
       </div>
       {visibleParts.map((p) => (
         <PartView key={p.id} part={p} streaming={!!activeDelta[p.id]} />
@@ -160,8 +203,8 @@ function PartView({ part, streaming }: { part: MessagePart; streaming: boolean }
 
   if (part.type === "text") {
     return (
-      <div className="msg-part text">
-        {part.text ?? ""}
+      <div className="msg-part text markdown">
+        <MarkdownText text={part.text ?? ""} />
         {cursor}
       </div>
     );
@@ -169,8 +212,8 @@ function PartView({ part, streaming }: { part: MessagePart; streaming: boolean }
 
   if (part.type === "reasoning") {
     return (
-      <div className="msg-part reasoning">
-        {part.text ?? ""}
+      <div className="msg-part reasoning markdown">
+        <MarkdownText text={part.text ?? ""} />
         {cursor}
       </div>
     );
@@ -192,6 +235,16 @@ function PartView({ part, streaming }: { part: MessagePart; streaming: boolean }
   }
 
   return null;
+}
+
+// Render assistant text as markdown (GFM: headings, lists, code, tables, links).
+// We pass through the raw string; marked handles partial/streaming text gracefully
+// (unclosed code fences render as the partial code block, etc.). Empty text
+// renders as an empty fragment so the streaming cursor still sits at the right spot.
+function MarkdownText({ text }: { text: string }) {
+  if (!text) return null;
+  // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted LLM output, personal-use app
+  return <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />;
 }
 
 // Tools that start collapsed -- output is noise for the user most of the time
@@ -237,15 +290,22 @@ function ToolPartView({ part }: { part: MessagePart }) {
   }
 
   if (status === "pending" || status === "running") {
+    // Some tools (bash) stream output via ctx.metadata({output}) while running.
+    // Show that live so the user isn't staring at a spinner.
+    const liveOutput = typeof st.metadata?.output === "string" ? (st.metadata.output as string) : "";
     return (
       <div className="msg-part tool running">
-        {title} <span className="cursor" />
-        {subagentSessionId && (
-          <span className="subagent-view-link" onClick={onViewSubagent}>
-            view &#8250;
-          </span>
-        )}
+        <div className="tool-header-running">
+          <span className="tool-title">{title}</span>
+          <span className="cursor" />
+          {subagentSessionId && (
+            <span className="subagent-view-link" onClick={onViewSubagent}>
+              view &#8250;
+            </span>
+          )}
+        </div>
         {command && <div className="tool-command">$ {command}</div>}
+        {liveOutput && <div className="tool-output">{liveOutput}</div>}
       </div>
     );
   }

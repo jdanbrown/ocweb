@@ -1,8 +1,9 @@
-import { selectSession, sortedSessions, startNewSession, timeAgo, useStore } from "../lib/store";
-import type { Repo } from "../lib/types";
+import { dirFor, selectSession, sortedSessions, startNewSession, timeAgo, useStore } from "../lib/store";
+import type { Repo, Worktree } from "../lib/types";
 
 export function Sidebar() {
-  const { sidebarOpen, version, opencodeVersion, currentRepo, sessions, currentSessionId, generating } = useStore();
+  const { sidebarOpen, version, opencodeVersion, currentRepo, sessions, currentSessionId, generating, allWorktrees } =
+    useStore();
 
   return (
     <div className={`sidebar ${sidebarOpen ? "open" : ""}`}>
@@ -11,6 +12,7 @@ export function Sidebar() {
         currentSessionId={currentSessionId}
         generating={generating}
         currentRepo={currentRepo}
+        worktrees={allWorktrees}
       />
       <div className="sidebar-footer">
         <div className="sidebar-footer-row">
@@ -57,13 +59,19 @@ function SessionList(props: {
   currentSessionId: string | null;
   generating: Record<string, boolean>;
   currentRepo: Repo | null;
+  worktrees: Worktree[];
 }) {
-  const { currentSessionId, generating, currentRepo } = props;
+  const { currentSessionId, generating, currentRepo, worktrees } = props;
   const sorted = sortedSessions();
 
   if (!currentRepo || sorted.length === 0) {
     return <div className="sidebar-empty">No sessions</div>;
   }
+
+  // Build a path -> worktree lookup so we can show git stats for the session's
+  // worktree without per-session API calls.
+  const byPath = new Map<string, Worktree>();
+  for (const w of worktrees) byPath.set(w.path, w);
 
   return (
     <div className="session-list">
@@ -73,6 +81,9 @@ function SessionList(props: {
         const ago = updated ? timeAgo(updated) : "";
         const active = s.id === currentSessionId;
         const busy = generating[s.id];
+        const dir = dirFor(s.id);
+        const wt = dir ? byPath.get(dir) : undefined;
+        const stat = wt?.git_stat;
 
         return (
           <div key={s.id} className={`session-item ${active ? "active" : ""}`} onClick={() => selectSession(s.id)}>
@@ -81,11 +92,30 @@ function SessionList(props: {
                 {busy && <span className="spinner" />}
                 {title}
               </div>
-              {ago && <div className="session-time">{ago}</div>}
+              <div className="session-meta">
+                {ago && <span className="session-time">{ago}</span>}
+                {stat && <GitStat stat={stat} />}
+              </div>
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+// Compact dirty/ahead indicator: "+2 ~3 ↑1" when nonzero, "clean" when all zero.
+// Color-coded: staged green, unstaged orange, ahead blue.
+function GitStat({ stat }: { stat: { staged: number; changed: number; ahead: number } }) {
+  const { staged, changed, ahead } = stat;
+  if (staged === 0 && changed === 0 && ahead === 0) {
+    return <span className="git-stat git-stat-clean">clean</span>;
+  }
+  return (
+    <span className="git-stat">
+      {staged > 0 && <span className="git-stat-staged">+{staged}</span>}
+      {changed > 0 && <span className="git-stat-changed">~{changed}</span>}
+      {ahead > 0 && <span className="git-stat-ahead">&#8593;{ahead}</span>}
+    </span>
   );
 }

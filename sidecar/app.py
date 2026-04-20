@@ -28,7 +28,26 @@ class _LogFilterForUvicornAccess(logging.Filter):
         return '"GET /auth/check ' not in record.getMessage()
 
 
-logging.basicConfig(level=logging.INFO)
+# Human-readable log format. Default `basicConfig` gives lines like
+# `INFO:uvicorn.access:...` which is ugly and noisy. Our format:
+#     <ISO time> <level> <logger> <msg>
+# e.g. `2026-04-20 03:12:45 INFO  sidecar.app Worktree created in 42ms`
+# - 8601-ish timestamp so log lines sort lexicographically
+# - fixed-width level so columns line up
+# - logger name shows where the log came from (uvicorn.access vs our code)
+_LOG_FORMAT = "%(asctime)s %(levelname)-5s %(name)s %(message)s"
+_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+logging.basicConfig(
+    level=logging.INFO, format=_LOG_FORMAT, datefmt=_LOG_DATEFMT, force=True
+)
+# Uvicorn configures its own formatters via `uvicorn.logging.DefaultFormatter`
+# (attached by `--log-config`). Setting `propagate=True` + replacing handlers
+# gets these through our basicConfig formatter consistently.
+for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+    lg = logging.getLogger(name)
+    lg.handlers.clear()
+    lg.propagate = True
+
 logging.getLogger("uvicorn.access").addFilter(_LogFilterForUvicornAccess())
 
 logger = logging.getLogger(__name__)
@@ -333,12 +352,20 @@ def delete_worktree(owner: str, name: str, session_id: str) -> dict[str, str]:
 
 
 @app.get("/admin/worktrees")
-def list_worktrees() -> dict[str, list[dict[str, str]]]:
+def list_worktrees() -> dict[str, list[dict[str, Any]]]:
+    """List worktrees with lightweight git status.
+
+    Each worktree entry includes `git_stat`: {changed: int, staged: int, ahead: int}
+    so the UI can show dirty/clean at a glance without a separate fetch per session.
+    `git status --porcelain=v2 --branch` is a single subprocess per worktree, cheap
+    enough to inline here (~10ms each on local SSD, worst case ~100ms across 10
+    worktrees on a cold fly volume).
+    """
     wt_dir = os.path.join(PROJECTS_DIR, "worktrees")
     if not os.path.exists(wt_dir):
         return {"worktrees": []}
     entries = os.listdir(wt_dir)
-    worktrees: list[dict[str, str]] = []
+    worktrees: list[dict[str, Any]] = []
     for e in entries:
         full = os.path.join(wt_dir, e)
         if os.path.isdir(full):
@@ -348,9 +375,64 @@ def list_worktrees() -> dict[str, list[dict[str, str]]]:
                     "repo": f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else e,
                     "session_id": parts[2] if len(parts) >= 3 else "",
                     "path": full,
+                    "git_stat": _git_stat(full),
                 }
             )
     return {"worktrees": worktrees}
+
+
+def _git_stat(worktree_path: str) -> dict[str, int]:
+    """Return a concise git-status summary for a worktree.
+
+    Counts:
+      - staged: entries with staged change (XY[0] != '.')
+      - changed: entries with unstaged change (XY[1] != '.') or untracked
+      - ahead: commits ahead of upstream (if tracked), else 0
+
+    Uses porcelain v2 so the format is machine-parsable and stable. If git
+    fails or the dir isn't a worktree, return zeros (best-effort, don't fail
+    the whole worktree-list call).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain=v2", "--branch"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=worktree_path,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"staged": 0, "changed": 0, "ahead": 0}
+    if result.returncode != 0:
+        return {"staged": 0, "changed": 0, "ahead": 0}
+
+    staged = 0
+    changed = 0
+    ahead = 0
+    for line in result.stdout.splitlines():
+        # Branch header: "# branch.ab +N -M"
+        if line.startswith("# branch.ab "):
+            # "# branch.ab +3 -0"
+            parts = line.split()
+            if len(parts) >= 3:
+                try:
+                    ahead = int(parts[2])  # "+N"
+                except ValueError:
+                    pass
+            continue
+        if not line or line.startswith("#"):
+            continue
+        # "1 XY ..." ordinary / "2 XY ..." renamed / "u XY ..." unmerged
+        if line.startswith(("1 ", "2 ", "u ")):
+            xy = line.split(" ", 2)[1]
+            if len(xy) >= 2:
+                if xy[0] != ".":
+                    staged += 1
+                if xy[1] != ".":
+                    changed += 1
+        elif line.startswith("? "):
+            changed += 1  # untracked
+    return {"staged": staged, "changed": changed, "ahead": ahead}
 
 
 # --- Disk & process endpoints ---
