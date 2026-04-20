@@ -1,5 +1,6 @@
 import { dirFor, selectSession, sortedSessions, startNewSession, timeAgo, useStore } from "../lib/store";
 import type { Repo, Worktree } from "../lib/types";
+import { GitStat } from "./GitStat";
 
 export function Sidebar() {
   const { sidebarOpen, version, opencodeVersion, currentRepo, sessions, currentSessionId, generating, allWorktrees } =
@@ -101,21 +102,5 @@ function SessionList(props: {
         );
       })}
     </div>
-  );
-}
-
-// Compact dirty/ahead indicator: "+2 ~3 ↑1" when nonzero, "clean" when all zero.
-// Color-coded: staged green, unstaged orange, ahead blue.
-function GitStat({ stat }: { stat: { staged: number; changed: number; ahead: number } }) {
-  const { staged, changed, ahead } = stat;
-  if (staged === 0 && changed === 0 && ahead === 0) {
-    return <span className="git-stat git-stat-clean">clean</span>;
-  }
-  return (
-    <span className="git-stat">
-      {staged > 0 && <span className="git-stat-staged">+{staged}</span>}
-      {changed > 0 && <span className="git-stat-changed">~{changed}</span>}
-      {ahead > 0 && <span className="git-stat-ahead">&#8593;{ahead}</span>}
-    </span>
   );
 }

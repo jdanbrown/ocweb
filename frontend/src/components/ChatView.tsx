@@ -248,7 +248,7 @@ function MarkdownText({ text }: { text: string }) {
 }
 
 // Tools that start collapsed -- output is noise for the user most of the time
-const COLLAPSED_BY_DEFAULT = new Set(["read", "glob", "grep", "task"]);
+const COLLAPSED_BY_DEFAULT = new Set(["read", "glob", "grep", "task", "webfetch"]);
 
 function ToolPartView({ part }: { part: MessagePart }) {
   const defaultCollapsed = COLLAPSED_BY_DEFAULT.has(part.tool ?? "");

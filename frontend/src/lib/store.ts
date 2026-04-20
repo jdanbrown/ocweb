@@ -236,6 +236,16 @@ export async function selectRepo(repo: Repo) {
   syncSSE();
 }
 
+export async function loadWorktrees() {
+  try {
+    const wtData = await get("/admin/worktrees");
+    state.allWorktrees = (wtData as { worktrees?: Worktree[] })?.worktrees ?? [];
+    emit();
+  } catch (e) {
+    console.debug("loadWorktrees:", e);
+  }
+}
+
 export async function loadSessions() {
   if (!state.currentRepo) return;
   try {
@@ -750,6 +760,9 @@ if (typeof document !== "undefined") {
     if (document.visibilityState !== "visible") return;
     console.log("visibilitychange: visible -> resync all dirs");
     for (const dir of Object.keys(state.sseStreams)) resyncDir(dir);
+    // Refresh git stats; cheap one-shot REST call, avoids stale dirty indicators
+    // if the user (or an agent) changed files while the tab was hidden.
+    loadWorktrees();
   });
 }
 
@@ -799,7 +812,12 @@ function handleEvent(raw: string) {
       state.generating[sid] = statusType !== "idle";
       emit();
       // Turn went idle -> flush any queued prompts for this session
-      if (wasBusy && statusType === "idle") flushQueuedMessages(sid);
+      if (wasBusy && statusType === "idle") {
+        flushQueuedMessages(sid);
+        // Agent turn likely changed files -- refresh git stats so sidebar/topbar
+        // reflect dirty state without waiting for the next full reload.
+        loadWorktrees();
+      }
     }
   }
 

@@ -1,6 +1,5 @@
 # Backlog (see AGENTS.md)
 - [2026-04-20] question tool: initial render blanks the whole screen; requires page reload to recover
-- [2026-04-20] webfetch tool output should be hidden by default (like read/glob/grep/task)
 - [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
   - Desktop Enter-to-send is wired; verify on real mobile that Enter=newline
 - [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
@@ -17,6 +16,6 @@
 - [2026-03-02] Three-dots menu in chat header: copy branch (with branch name inline), share session, rename session
 - [2026-03-02] Mode picker in input area (build/plan/etc)
 - [2026-03-02] Photo upload in input area
-- [2026-03-02] Add text button in top bar to show git stat/diff/log for current chat session
-  - Sidebar now shows per-session git stat summary; a dedicated diff/log view still TBD
+- [2026-03-02] Add button in top bar to show git diff/log for current chat session
+  - Top bar shows git stat summary; a dedicated diff/log view still TBD
 - [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?

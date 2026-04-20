@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cloneAndSelectRepo,
   closeSubagent,
+  dirFor,
   loadRepoPickerData,
   selectRepo,
   setDebugLogOpen,
@@ -11,6 +12,7 @@ import {
   viewedSessionId,
 } from "../lib/store";
 import type { Message } from "../lib/types";
+import { GitStat } from "./GitStat";
 
 // Tapping the top bar's "dead zones" (session label, spacer) scrolls chat to top,
 // matching the iOS convention of tapping the status/title bar to scroll up.
@@ -18,7 +20,7 @@ import type { Message } from "../lib/types";
 export const SCROLL_TO_TOP_EVENT = "dancodes:scroll-to-top";
 
 export function TopBar() {
-  const { sidebarOpen, sessions, currentSessionId, viewStack, messages, debugLogOpen } = useStore();
+  const { sidebarOpen, sessions, currentSessionId, viewStack, messages, debugLogOpen, allWorktrees } = useStore();
   const topView = viewStack.at(-1);
   const inSubagentView = !!topView;
 
@@ -32,6 +34,13 @@ export function TopBar() {
   // LLM providers bill for from the user's perspective).
   const viewedId = viewedSessionId();
   const tokenInfo = viewedId ? summarizeTokens(messages[viewedId] ?? []) : null;
+
+  // Git stat for the viewed session's worktree. Hidden in subagent view because
+  // the subagent shares the parent worktree -- showing the parent's stat there
+  // would be misleading.
+  const viewedDir = viewedId && !inSubagentView ? dirFor(viewedId) : undefined;
+  const viewedWt = viewedDir ? allWorktrees.find((w) => w.path === viewedDir) : undefined;
+  const viewedGitStat = viewedWt?.git_stat;
 
   // Scroll-to-top on tap of non-interactive top-bar areas
   const onTopBarClick = useCallback((e: React.MouseEvent) => {
@@ -57,6 +66,7 @@ export function TopBar() {
         {sessionLabel && <div className="top-bar-session">{sessionLabel}</div>}
       </div>
       <span className="top-bar-spacer" />
+      {viewedGitStat && <GitStat stat={viewedGitStat} />}
       {tokenInfo && (
         <span className="top-bar-tokens" title={tokenInfo.title}>
           {tokenInfo.label}
