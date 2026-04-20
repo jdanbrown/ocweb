@@ -141,7 +141,7 @@ Auto-generated OpenAPI docs at `/admin/docs`.
 - Mobile-first -- opencode CLI is the UX grounding, adapted to a mobile flow
 - "Pick repo" → "pick/create chat session" is top-level in the UX, persisted client-side
 - On page load, drop the user into a focused text box: restore last-used repo, pick most recent chat. Only exception: no last-used repo and no repos on disk -- don't auto-clone anything. Show a "+" button in the top right so it's easy to create a new chat if the restored one isn't what they want
-- Sidebar is a key UX component: swipe gestures to show/hide (in addition to buttons/taps)
+- Sidebar is a key UX component: hamburger button to show, tap overlay to hide
 - No zoom on mobile -- focusing inputs must not zoom the page
 - Input area groups: send/stop button, model picker, opencode mode picker (build/plan/etc), upload photo
 - "Scroll to bottom" button when scrolled up in chat; auto-follow new content when scroll is at the bottom (standard chat app idiom)

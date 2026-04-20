@@ -13,8 +13,6 @@
 - [2026-03-03] Doesn't load on iOS safari, but loads on “save to Home Screen” (which is basically just safari), and loads in iOS chrome and iOS Firefox
   - Did I end up with bad local storage?
   - I tried delete site data for fly.dev in iOS settings → apps → safari → advanced, but it still doesn't load
-- [2026-03-03] Can't drag to select text because swipe gesture happens when I try to drag right
-  - Can we de-conflict these, or do we need to remove the swipe gesture?
 - [2026-03-03] Long press on user input for copy/revert/fork
 - [2026-03-03] Send button sometimes refuses to trigger during multi-round chat session
   - Maybe after I press stop? But I think not?
@@ -29,7 +27,6 @@
 - [2026-03-02] Mode picker in input area (build/plan/etc)
 - [2026-03-02] Photo upload in input area
 - [2026-03-02] Pin all deps versions
-- [2026-03-02] Pin opencode version, plus add a skill for what to do when upgrading opencode (e.g. check changelog for api changes)
 - [2026-03-02] Add text button in top bar to show git stat/diff/log for current chat session
 - [2026-03-02] Figure out how to connect from opencode cli -- i think custom auth currently defeats it?
 - [2026-03-02] Frontend disconnect/reconnect doesn't reflect interim progress

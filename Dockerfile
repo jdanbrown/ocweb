@@ -30,7 +30,9 @@ RUN ARCH=$(dpkg --print-architecture) \
   && chmod a+x /usr/local/bin/caddy
 
 # Install opencode
-RUN npm install -g opencode-ai@latest
+# - Pin version for reproducible builds. Bump manually when upgrading.
+ARG OPENCODE_VERSION=1.14.18
+RUN npm install -g opencode-ai@${OPENCODE_VERSION}
 
 # Install python deps
 # - Restrict COPY to just requirements.txt, because `COPY . .` busts cache on _any_ file change -- annoying in dev

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { ChatView } from "./components/ChatView";
 import { InputArea } from "./components/InputArea";
 import { Sidebar } from "./components/Sidebar";
@@ -16,27 +16,8 @@ export function App() {
     }
   }, []);
 
-  // Swipe gesture for sidebar
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, []);
-  const onTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStart.current) return;
-      const dx = e.changedTouches[0].clientX - touchStart.current.x;
-      const dy = e.changedTouches[0].clientY - touchStart.current.y;
-      touchStart.current = null;
-      // Only trigger if horizontal swipe is dominant and > 60px
-      if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
-      if (dx > 0 && !sidebarOpen) setSidebarOpen(true);
-      if (dx < 0 && sidebarOpen) setSidebarOpen(false);
-    },
-    [sidebarOpen],
-  );
-
   return (
-    <div className="app-root" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="app-root">
       <TopBar />
       <div className="app-body">
         {sidebarOpen && <div className="overlay" onClick={() => setSidebarOpen(false)} />}
