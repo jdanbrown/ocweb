@@ -5,7 +5,8 @@ import { SCROLL_TO_TOP_EVENT } from "./TopBar";
 
 export function ChatView() {
   const { currentSessionId, currentRepo, messages, generating, streamingParts, viewStack } = useStore();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<MutationObserver | null>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const isAtBottom = useRef(true);
 
@@ -23,17 +24,49 @@ export function ChatView() {
     setShowScrollBtn(!nearBottom);
   }, []);
 
-  // Auto-scroll when new content arrives and we're at the bottom.
-  // Intentionally triggers on msgs/activeDelta changes (not just refs).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: need to re-run on data changes
+  // Auto-scroll via a MutationObserver on the chat container.
+  //
+  // Why MutationObserver instead of `useEffect(..., [msgs, activeDelta])`:
+  // The store mutates message arrays and parts in place (see store.ts handleEvent),
+  // and `emit()` only shallow-copies the top-level state. So `messages[viewedId]`
+  // keeps the same array reference across renders even as its contents grow,
+  // and useEffect's Object.is dep check doesn't re-fire on appends/text deltas.
+  // Observing DOM subtree changes directly is the robust signal: if content grew,
+  // we tail. If the user scrolled away (isAtBottom=false), we don't.
+  //
+  // Use a callback ref so we (re)attach the observer whenever the container node
+  // mounts/unmounts -- the early-return branches above render a different <div>
+  // without the ref, so React swaps the node when content first appears.
+  const setContainer = useCallback((el: HTMLDivElement | null) => {
+    containerRef.current = el;
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    if (!el) return;
+    // Snap to bottom on initial attach (first content render)
+    if (isAtBottom.current) el.scrollTop = el.scrollHeight;
+    const mo = new MutationObserver(() => {
+      if (isAtBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    mo.observe(el, { childList: true, subtree: true, characterData: true });
+    observerRef.current = mo;
+  }, []);
+
   useEffect(() => {
-    if (isAtBottom.current && containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [msgs, activeDelta]);
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
+  }, []);
 
   function scrollToBottom() {
-    containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
+    const el = containerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    // Pressing the button means the user wants to re-enable auto-tail.
+    // Without this, a prior scroll-up would have set isAtBottom=false, and the
+    // next content arrival wouldn't tail until the user manually scrolled back.
+    isAtBottom.current = true;
+    setShowScrollBtn(false);
   }
 
   // Tap the top bar's dead zone to scroll chat to top (iOS convention)
@@ -56,7 +89,7 @@ export function ChatView() {
   }
 
   return (
-    <div className="chat-view" ref={containerRef} onScroll={onScroll}>
+    <div className="chat-view" ref={setContainer} onScroll={onScroll}>
       {msgs.map((msg) => (
         <MessageBubble key={msg.info.id} msg={msg} activeDelta={activeDelta} />
       ))}

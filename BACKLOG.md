@@ -1,8 +1,9 @@
 # Backlog (see AGENTS.md)
+- [2026-04-20] question tool: initial render blanks the whole screen; requires page reload to recover
+- [2026-04-20] webfetch tool output should be hidden by default (like read/glob/grep/task)
+- [2026-04-20] When switching back and forth between repos, automatically select the last viewed chat session (per-repo last session, not just global last)
 - [2026-04-20] Render markdown in agent output
 - [2026-04-20] Queue messages while agent turn is in progress (don't lose Stop button -- send queued messages after turn completes)
-- [2026-04-20] Don't allow machine spin-down while agent turn is in progress (do it from backend, don't require frontend to be connected)
-- [2026-04-20] Fix: auto-tail no longer works when scroll is at bottom (even after pressing scroll-to-bottom button). Scroll never moves on its own. This used to work. (was [2026-03-13], still affecting)
 - [2026-03-13] Input: on desktop, Enter should Send, shift/opt/ctrl+Enter should insert newline. On mobile, Enter should insert newline, only tapping Send button should send.
 - [2026-03-04] Fix secrets/tokens/env so that `gh` and `fly`/`flyctl` work in prod
 - [2026-03-04] Show git stat in sidebar for each session (so we can spot clean vs. dirty)

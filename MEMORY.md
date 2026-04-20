@@ -11,6 +11,16 @@
 - 2026-02-28 32452fe
 
 ## Memory log
+- [2026-04-20] Auto-tail: store mutates arrays in place, so `useEffect(..., [msgs])` doesn't fire
+  - `emit()` in store.ts does shallow-copy only of top-level state; `state.messages[id]` is the same array reference across renders even as content grows (mutated in place in `handleEvent`)
+  - React useEffect does Object.is dep comparison, sees no change, never re-runs -- so previously the auto-scroll never triggered on streaming deltas
+  - Fix in ChatView.tsx: attach a `MutationObserver` on the scroll container (via callback ref, since early-returns render a different `<div>` without the ref). Tails on any DOM subtree change while `isAtBottom` is true.
+- [2026-04-20] Fly keepalive while agent turn is running (self-ping in sidecar)
+  - `auto_stop_machines = "stop"` stops the machine after idle connections; if user closes browser mid-agent-turn, SSE closes and machine can stop mid-LLM
+  - Fix: sidecar lifespan task polls opencode every 30s; if any agent turn is in progress, GET our own public URL (`https://$FLY_APP_NAME.fly.dev/admin/health`) so Fly Proxy sees a live incoming connection and resets its idle timer
+  - "Agent turn in progress" = any assistant message with `info.time.created` set but `info.time.completed` absent. Detected by first polling `/session/status` per worktree, then `/session/:id/message` on each busy session to read timestamps. Per-message timestamps are wall-clock ms (JS `Date.now()`).
+  - Pings only while a turn is running; idle machine still auto-stops. Disabled in local dev (no `FLY_APP_NAME`). `/admin/health` is unauthenticated in Caddyfile, so no cookie needed.
+  - Safety cap (2h) on a single turn's age, not sampled busy-streak. Sampling-based streak tracking had two edge cases: back-to-back turns with brief idle gaps got collapsed (false trip), and transient /session/status hiccups falsely reset the streak. Per-turn wall-clock age via opencode timestamps sidesteps both.
 - [2026-03-13] XDG dirs and HOME
   - All four XDG vars explicitly set in fly.toml to `/vol/xdg/{data,state,cache,config}`
   - DB lives at `/vol/xdg/data/opencode/opencode.db`

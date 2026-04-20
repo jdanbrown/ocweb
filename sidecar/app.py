@@ -2,6 +2,8 @@
 dancodes sidecar -- git lifecycle, disk usage, orphan process management, auth.
 """
 
+import asyncio
+import contextlib
 import hashlib
 import hmac
 import logging
@@ -10,6 +12,8 @@ import shutil
 import subprocess
 import time
 import traceback
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Form
@@ -41,8 +45,38 @@ COOKIE_NAME = "dancodes_session"
 # for the browser to send them over HTTPS. Use X-Forwarded-Proto to detect.
 COOKIE_SECURE = os.environ.get("FLY_APP_NAME", "") != ""
 
+# Self-ping keepalive: while any opencode session is busy, ping our own public
+# URL on a loop so Fly Proxy sees live connections and doesn't auto-stop the
+# machine. Critical for async usage: user closes browser, agent keeps working.
+# See MEMORY.md ([2026-03-13] on-demand machine) for the architectural context.
+# `FLY_APP_NAME` is auto-set in prod; empty in local dev, which disables keepalive.
+FLY_APP_NAME = os.environ.get("FLY_APP_NAME", "")
+KEEPALIVE_URL = f"https://{FLY_APP_NAME}.fly.dev/admin/health" if FLY_APP_NAME else ""
+KEEPALIVE_INTERVAL_SEC = 30  # Fly idle timeout is a few minutes; 30s has wide margin
+# Safety cap on a single agent turn. If any in-progress assistant message has
+# been running for this long, stop pinging so Fly auto-stops the machine. This
+# catches runaway agents without affecting normal multi-turn chats -- each new
+# turn starts with a fresh clock (measured via opencode's per-message timestamps).
+KEEPALIVE_MAX_TURN_AGE_SEC = 2 * 60 * 60  # 2h
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    task = asyncio.create_task(_keepalive_loop()) if KEEPALIVE_URL else None
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
 app = FastAPI(
-    title="dancodes sidecar", docs_url="/admin/docs", openapi_url="/admin/openapi.json"
+    title="dancodes sidecar",
+    docs_url="/admin/docs",
+    openapi_url="/admin/openapi.json",
+    lifespan=_lifespan,
 )
 
 
@@ -425,3 +459,151 @@ def _human(nbytes: int) -> str:
             return f"{n:.1f}{unit}"
         n /= 1024
     return f"{n:.1f}PB"
+
+
+# --- Keepalive loop ---
+
+
+async def _oldest_running_turn_age_sec(client: httpx.AsyncClient) -> float | None:
+    """Age (seconds) of the oldest currently-running agent turn across all sessions.
+
+    An "agent turn" is an assistant message with `time.created` set but no
+    `time.completed`. We enumerate every session in every worktree, look at its
+    last assistant message, and if it's in-progress, track how long it's been running.
+    Returns None if no turn is running (machine is effectively idle).
+
+    We use per-turn wall-clock age (not sampled "busy streak") so that two
+    back-to-back turns with a brief idle gap don't look like one long streak,
+    and transient /session/status hiccups don't falsely reset the timer.
+    """
+    wt_dir = os.path.join(PROJECTS_DIR, "worktrees")
+    if not os.path.exists(wt_dir):
+        return None
+    try:
+        entries = os.listdir(wt_dir)
+    except OSError:
+        return None
+
+    # Collect per-worktree list of busy session ids so we only fetch messages where needed
+    busy_sessions: list[tuple[str, str]] = []  # (worktree_path, session_id)
+    for entry in entries:
+        path = os.path.join(wt_dir, entry)
+        if not os.path.isdir(path):
+            continue
+        try:
+            resp = await client.get(
+                f"{OPENCODE_URL}/session/status",
+                headers={"x-opencode-directory": path},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            if not isinstance(data, dict):
+                continue
+            data_dict = cast(dict[str, Any], data)
+            for sid, status in data_dict.items():
+                if (
+                    isinstance(status, dict)
+                    and cast(dict[str, Any], status).get("type") != "idle"
+                ):
+                    busy_sessions.append((path, sid))
+        except Exception:
+            continue
+
+    if not busy_sessions:
+        return None
+
+    now_ms = time.time() * 1000
+    oldest_age_sec: float | None = None
+    for path, sid in busy_sessions:
+        try:
+            resp = await client.get(
+                f"{OPENCODE_URL}/session/{sid}/message",
+                headers={"x-opencode-directory": path},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                continue
+            msgs = resp.json()
+            if not isinstance(msgs, list):
+                continue
+            msgs_list = cast(list[Any], msgs)
+            # Find the most recent assistant message with no completion time.
+            # Messages are chronological -- iterate in reverse.
+            for m in reversed(msgs_list):
+                if not isinstance(m, dict):
+                    continue
+                info = cast(dict[str, Any], m).get("info")
+                if not isinstance(info, dict):
+                    continue
+                info_d = cast(dict[str, Any], info)
+                if info_d.get("role") != "assistant":
+                    continue
+                t = info_d.get("time")
+                if not isinstance(t, dict):
+                    break
+                t_d = cast(dict[str, Any], t)
+                if t_d.get("completed") is not None:
+                    # Latest assistant msg completed -- session shows busy but no
+                    # in-flight turn (maybe a tool-call race). Skip this session.
+                    break
+                created = t_d.get("created")
+                if isinstance(created, (int, float)):
+                    age = (now_ms - created) / 1000
+                    if oldest_age_sec is None or age > oldest_age_sec:
+                        oldest_age_sec = age
+                break
+        except Exception:
+            continue
+
+    return oldest_age_sec
+
+
+async def _keepalive_loop() -> None:
+    """While any agent turn is running, ping our public URL so Fly keeps the machine alive.
+
+    The public URL goes through Fly Proxy, which is what counts for auto-stop
+    connection tracking. Internal (localhost, .internal) requests don't count.
+
+    We only ping when a turn is running. When idle, we stay silent and let Fly
+    auto-stop us.
+
+    Safety cap: if any single turn runs longer than KEEPALIVE_MAX_TURN_AGE_SEC
+    (currently 2h), we stop pinging so Fly idle-stops the machine. This catches
+    runaway agents. We measure per-turn wall-clock age (via opencode message
+    timestamps), so normal multi-turn chats don't trip the cap -- each new turn
+    starts with a fresh clock, even if you chat for many hours.
+    """
+    logger.info(
+        "keepalive: loop starting, target=%s, max_turn_age_sec=%s",
+        KEEPALIVE_URL,
+        KEEPALIVE_MAX_TURN_AGE_SEC,
+    )
+    async with httpx.AsyncClient() as client:
+        while True:
+            try:
+                age = await _oldest_running_turn_age_sec(client)
+                if age is None:
+                    pass  # idle -- don't ping
+                elif age > KEEPALIVE_MAX_TURN_AGE_SEC:
+                    # Log once per minute rather than every iteration
+                    if int(age) % 60 < KEEPALIVE_INTERVAL_SEC:
+                        logger.warning(
+                            "keepalive: oldest turn age %.0fs exceeds cap %ss, not pinging",
+                            age,
+                            KEEPALIVE_MAX_TURN_AGE_SEC,
+                        )
+                else:
+                    try:
+                        r = await client.get(KEEPALIVE_URL, timeout=10)
+                        logger.debug(
+                            "keepalive: pinged, status=%s, oldest_turn_age=%.0fs",
+                            r.status_code,
+                            age,
+                        )
+                    except Exception as e:
+                        logger.warning("keepalive: ping failed: %s", e)
+            except Exception:
+                logger.exception("keepalive: unexpected error in loop")
+            await asyncio.sleep(KEEPALIVE_INTERVAL_SEC)
